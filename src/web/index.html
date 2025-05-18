@@ -20,7 +20,7 @@
         </div>
     </div>
     <div class="editor-container">
-        <div id="cy"></div>
+        <div id="root"></div>
         <div class="properties-panel">
             <h3>Properties</h3>
             <div id="properties-content">
@@ -30,7 +30,9 @@
     </div>
     <input type="file" id="file-input" accept=".awf.json,.json,application/json" style="display: none;">
 
-    <script src="js/cytoscape-config.js"></script>
-    <script src="js/graph-editor.js"></script>
+    
+    <script src="./js/bundle.js"></script> <!-- Bundled by Webpack -->
+    <!-- <script src="js/cytoscape-config.js"></script>
+    <script src="js/graph-editor.js"></script> -->
 </body>
 </html>

@@ -18,10 +18,14 @@ A framework for defining, visualizing, and editing workflow graphs.
 ## Usage
 
 ```sh
-python -m http.server 8080
+cd src/web
+
+npm init -y
+npm install react@latest react-dom@latest reactflow@latest
+npm install --save-dev webpack webpack-cli webpack-dev-server babel-loader @babel/core @babel/preset-env @babel/preset-react style-loader css-loader
 ```
 
-### Python API
+<!-- ### Python API
 
 ```python
 from src.workflow.core import Node, Edge, Graph
@@ -39,4 +43,4 @@ graph.connect(start, process, label="Next")
 graph.connect(process, end, label="Complete")
 
 # Save workflow
-graph.save("my_workflow.awf.json")
+graph.save("my_workflow.awf.json") -->

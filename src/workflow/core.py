@@ -45,11 +45,14 @@ class Edge:
     """Class representing a connection between nodes."""
     
     def __init__(self, edge_id: str = None, source_id: str = None, target_id: str = None, 
-                 label: str = None, **properties):
+                 label: str = None, source_endpoint: str = "0 0.5", target_endpoint: str = "1 0.5", 
+                 **properties):
         self.id = edge_id or str(uuid.uuid4())
         self.source_id = source_id
         self.target_id = target_id
         self.label = label or ""
+        self.source_endpoint = source_endpoint  # Default to left side of source node
+        self.target_endpoint = target_endpoint  # Default to right side of target node
         self.properties = properties
     
     def to_dict(self) -> Dict[str, Any]:
@@ -59,6 +62,8 @@ class Edge:
             "source": self.source_id,
             "target": self.target_id,
             "label": self.label,
+            "sourceEndpoint": self.source_endpoint,
+            "targetEndpoint": self.target_endpoint,
             "properties": self.properties
         }
     
@@ -70,6 +75,8 @@ class Edge:
             source_id=data.get("source"),
             target_id=data.get("target"),
             label=data.get("label", ""),
+            source_endpoint=data.get("sourceEndpoint", "0 0.5"),
+            target_endpoint=data.get("targetEndpoint", "1 0.5"),
             **data.get("properties", {})
         )
 
