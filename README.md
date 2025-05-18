@@ -17,6 +17,10 @@ A framework for defining, visualizing, and editing workflow graphs.
 
 ## Usage
 
+```sh
+python -m http.server 8080
+```
+
 ### Python API
 
 ```python

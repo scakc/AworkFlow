@@ -11,7 +11,7 @@ const cytoscapeConfig = {
                 'width': 100,
                 'height': 60,
                 'shape': 'roundrectangle',
-                'border-width': 2,
+                'border-width': 1,
                 'border-color': '#000',
                 'font-size': 12
             }
@@ -19,7 +19,7 @@ const cytoscapeConfig = {
         {
             selector: 'edge',
             style: {
-                'width': 3,
+                'width': 2,
                 'line-color': '#ccc',
                 'target-arrow-color': '#ccc',
                 'target-arrow-shape': 'triangle',
@@ -34,14 +34,17 @@ const cytoscapeConfig = {
             selector: ':selected',
             style: {
                 'background-color': '#ff7f00',
-                'line-color': '#ff7f00',
-                'target-arrow-color': '#ff7f00',
-                'source-arrow-color': '#ff7f00',
                 'border-width': 3,
                 'border-color': '#ff7f00'
             }
+        },
+        {
+            selector: '.edge-source',
+            style: {
+              'border-color': '#00ff00'  // Highlight source node when drawing edge
+            }
         }
-    ],
+    ],    
     layout: {
         name: 'cose',
         idealEdgeLength: 100,

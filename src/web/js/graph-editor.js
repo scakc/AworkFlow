@@ -49,7 +49,7 @@ class WorkflowEditor {
                 if (this.edgeSource) {
                     // Complete edge drawing
                     this.addEdge(this.edgeSource, node);
-                    this.cancelEdgeMode();
+                    this.cancelEdgeMode(); 
                 } else {
                     // Start edge drawing
                     this.edgeSource = node;
@@ -187,6 +187,7 @@ class WorkflowEditor {
             data: { 
                 id: id, 
                 label: 'New Node',
+                type: 'Node',
                 properties: {}
             },
             position: {
@@ -205,10 +206,10 @@ class WorkflowEditor {
         const btn = document.getElementById('add-edge-btn');
         if (this.edgeDrawMode) {
             btn.style.backgroundColor = '#ff7f00';
-            btn.textContent = 'Cancel Edge';
+            btn.textContent = 'Cancel Edge';            
         } else {
             btn.style.backgroundColor = '';
-            btn.textContent = 'Add Edge';
+            btn.textContent = 'Add Edge';            
         }
         
         this.cy.nodes().removeClass('edge-source');
@@ -229,7 +230,7 @@ class WorkflowEditor {
         const edge = this.cy.add({
             group: 'edges',
             data: {
-                id: id,
+                id: id, 
                 source: source.id(),
                 target: target.id(),
                 label: '',
@@ -249,7 +250,7 @@ class WorkflowEditor {
     
     selectElement(element) {
         this.clearSelection();
-        this.selectedElement = element;
+        this.selectedElement = element;       
         element.select();
         this.updatePropertiesPanel(element);
     }
@@ -264,7 +265,7 @@ class WorkflowEditor {
         const panel = document.getElementById('properties-content');
         
         if (!element) {
-            panel.innerHTML = '<p>Select a node or edge to edit properties</p>';
+            panel.innerHTML = '<p>Select a node or edge to edit properties</p>';            
             return;
         }
         
@@ -299,7 +300,7 @@ class WorkflowEditor {
                 <div class="property-row" data-key="${key}">
                     <label>${key}</label>
                     <input type="text" value="${properties[key]}">
-                    <button class="delete-prop">X</button>
+                    <button class="delete-prop">X</button>                    
                 </div>
             `;
         });
@@ -308,7 +309,7 @@ class WorkflowEditor {
             <div class="property-row">
                 <button id="add-prop-btn">Add Property</button>
             </div>
-            <div class="property-row">
+            <div class="property-row">                
                 <button id="apply-props-btn">Apply Changes</button>
             </div>
         `;
@@ -321,13 +322,13 @@ class WorkflowEditor {
         });
         
         document.getElementById('add-prop-btn').addEventListener('click', () => {
-            this.addProperty();
+            this.addProperty();            
         });
-        
+                
         document.querySelectorAll('.delete-prop').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const row = e.target.closest('.property-row');
-                row.remove();
+                row.remove();                
             });
         });
     }
@@ -346,12 +347,12 @@ class WorkflowEditor {
             <label>${key}</label>
             <input type="text" value="">
             <button class="delete-prop">X</button>
-        `;
+        `;        
         
         propertiesContent.insertBefore(propertyRow, addPropBtn);
         
         propertyRow.querySelector('.delete-prop').addEventListener('click', () => {
-            propertyRow.remove();
+            propertyRow.remove();            
         });
     }
     

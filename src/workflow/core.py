@@ -12,6 +12,8 @@ class Node:
         self.properties = properties
         self.incoming_edges = set()
         self.outgoing_edges = set()
+        # Placeholder for connection points - not actively used in this visualization
+        self.connection_points = {"left": None, "right": None} 
     
     def add_property(self, key: str, value: Any) -> None:
         """Add or update a property."""
