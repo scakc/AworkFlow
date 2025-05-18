@@ -1,149 +1,42 @@
-from typing import Dict, List, Any, Optional, Set
 import json
-import uuid
+from pathlib import Path
 
-
-class Node:
-    """Base class for workflow nodes."""
-    
-    def __init__(self, node_id: str = None, label: str = None, **properties):
-        self.id = node_id or str(uuid.uuid4())
-        self.label = label or "Node"
-        self.properties = properties
-        self.incoming_edges = set()
-        self.outgoing_edges = set()
-        # Placeholder for connection points - not actively used in this visualization
-        self.connection_points = {"left": None, "right": None} 
-    
-    def add_property(self, key: str, value: Any) -> None:
-        """Add or update a property."""
-        self.properties[key] = value
-    
-    def get_property(self, key: str, default: Any = None) -> Any:
-        """Get a property value."""
-        return self.properties.get(key, default)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert node to dictionary for serialization."""
-        return {
-            "id": self.id,
-            "label": self.label,
-            "type": self.__class__.__name__,
-            "properties": self.properties
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Node':
-        """Create a node from dictionary data."""
-        node_id = data.get("id")
-        label = data.get("label")
-        properties = data.get("properties", {})
-        return cls(node_id=node_id, label=label, **properties)
-
-
-class Edge:
-    """Class representing a connection between nodes."""
-    
-    def __init__(self, edge_id: str = None, source_id: str = None, target_id: str = None, 
-                 label: str = None, source_endpoint: str = "0 0.5", target_endpoint: str = "1 0.5", 
-                 **properties):
-        self.id = edge_id or str(uuid.uuid4())
-        self.source_id = source_id
-        self.target_id = target_id
-        self.label = label or ""
-        self.source_endpoint = source_endpoint  # Default to left side of source node
-        self.target_endpoint = target_endpoint  # Default to right side of target node
-        self.properties = properties
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert edge to dictionary for serialization."""
-        return {
-            "id": self.id,
-            "source": self.source_id,
-            "target": self.target_id,
-            "label": self.label,
-            "sourceEndpoint": self.source_endpoint,
-            "targetEndpoint": self.target_endpoint,
-            "properties": self.properties
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Edge':
-        """Create an edge from dictionary data."""
-        return cls(
-            edge_id=data.get("id"),
-            source_id=data.get("source"),
-            target_id=data.get("target"),
-            label=data.get("label", ""),
-            source_endpoint=data.get("sourceEndpoint", "0 0.5"),
-            target_endpoint=data.get("targetEndpoint", "1 0.5"),
-            **data.get("properties", {})
-        )
-
-
-class Graph:
-    """Class representing a workflow graph."""
-    
-    def __init__(self, name: str = "Workflow"):
+class BaseNode:
+    def __init__(self, id: str, name: str, description: str = ""):
+        self.id = id
         self.name = name
-        self.nodes: Dict[str, Node] = {}
-        self.edges: Dict[str, Edge] = {}
-    
-    def add_node(self, node: Node) -> Node:
-        """Add a node to the graph."""
-        self.nodes[node.id] = node
-        return node
-    
-    def add_edge(self, edge: Edge) -> Edge:
-        """Add an edge to the graph."""
-        self.edges[edge.id] = edge
-        
-        # Update node connections
-        if edge.source_id in self.nodes:
-            self.nodes[edge.source_id].outgoing_edges.add(edge.id)
-        if edge.target_id in self.nodes:
-            self.nodes[edge.target_id].incoming_edges.add(edge.id)
-            
-        return edge
-    
-    def connect(self, source: Node, target: Node, label: str = None, **properties) -> Edge:
-        """Connect two nodes with an edge."""
-        edge = Edge(source_id=source.id, target_id=target.id, label=label, **properties)
-        return self.add_edge(edge)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert graph to dictionary for serialization."""
-        return {
-            "name": self.name,
-            "nodes": [node.to_dict() for node in self.nodes.values()],
-            "edges": [edge.to_dict() for edge in self.edges.values()]
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Graph':
-        """Create a graph from dictionary data."""
-        graph = cls(name=data.get("name", "Workflow"))
-        
-        # Add nodes first
-        for node_data in data.get("nodes", []):
-            node = Node.from_dict(node_data)
-            graph.add_node(node)
-        
-        # Then add edges
-        for edge_data in data.get("edges", []):
-            edge = Edge.from_dict(edge_data)
-            graph.add_edge(edge)
-            
-        return graph
-    
-    def save(self, filepath: str) -> None:
-        """Save the workflow to a .awf.json file."""
-        with open(filepath, 'w') as f:
-            json.dump(self.to_dict(), f, indent=2)
-    
-    @classmethod
-    def load(cls, filepath: str) -> 'Graph':
-        """Load a workflow from a .awf.json file."""
-        with open(filepath, 'r') as f:
-            data = json.load(f)
-        return cls.from_dict(data)
+        self.description = description
+
+    def __repr__(self):
+        return f"BaseNode(id={self.id}, name={self.name})"
+
+class BaseEdge:
+    def __init__(self, source: str, target: str):
+        self.source = source
+        self.target = target
+
+    def __repr__(self):
+        return f"BaseEdge(source={self.source}, target={self.target})"
+
+def load_workflow_from_file(path: str):
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Workflow file not found: {path}")
+
+    with p.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    nodes = []
+    for n in data.get("nodes", []):
+        node = BaseNode(id=n["id"], name=n["name"], description=n.get("description", ""))
+        nodes.append(node)
+
+    edges = []
+    for e in data.get("edges", []):
+        edge = BaseEdge(source=e["source"], target=e["target"])
+        edges.append(edge)
+
+    return {
+        "nodes": nodes,
+        "edges": edges
+    }

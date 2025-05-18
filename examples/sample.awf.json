@@ -1,77 +1,20 @@
 {
-  "name": "Sample Workflow",
   "nodes": [
     {
-      "id": "start",
-      "label": "Start",
-      "type": "Node",
-      "properties": {
-        "description": "Starting point of workflow"
-      },
-      "position": {
-        "x": 100,
-        "y": 100
-      }
+      "id": "1",
+      "name": "Task 1",
+      "description": "This is the first task"
     },
     {
-      "id": "process",
-      "label": "Process Data",
-      "type": "Node",
-      "properties": {
-        "description": "Process input data",
-        "timeout": "30"
-      },
-      "position": {
-        "x": 300,
-        "y": 200
-      }
-    },
-    {
-      "id": "decision",
-      "label": "Decision",
-      "type": "Node",
-      "properties": {
-        "condition": "data.size > 100"
-      },
-      "position": {
-        "x": 500,
-        "y": 100
-      }
-    },
-    {
-      "id": "end",
-      "label": "End",
-      "type": "Node",
-      "properties": {},
-      "position": {
-        "x": 700,
-        "y": 200
-      }
+      "id": "2",
+      "name": "Task 2",
+      "description": "This is the second task"
     }
   ],
   "edges": [
     {
-      "id": "e1",
-      "source": "start",
-      "target": "process",
-      "label": "Next",
-      "properties": {
-        "condition": "always"
-      }
-    },
-    {
-      "id": "e2",
-      "source": "process",
-      "target": "decision",
-      "label": "Evaluate",
-      "properties": {}
-    },
-    {
-      "id": "e3",
-      "source": "decision",
-      "target": "end",
-      "label": "Complete",
-      "properties": {}
+      "source": "1",
+      "target": "2"
     }
   ]
 }
