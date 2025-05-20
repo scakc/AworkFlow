@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "webpack",
-    "serve": "npx live-server ."
+    "serve": "npx live-server .",
+    "bs": "npm run build | npm run serve"
   },
   "keywords": [],
   "author": "",

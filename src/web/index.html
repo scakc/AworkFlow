@@ -13,19 +13,17 @@
             <button id="new-btn">New</button>
             <button id="open-btn" onclick="handleOpen()">Open</button>
             <button id="save-btn">Save</button>
-            <button id="add-node-btn">Add Node</button>
-            <button id="add-edge-btn">Add Edge</button>
-            <button id="delete-btn">Delete</button>
+            <button id="add-node-btn" onclick="handleAddNode()">Add Node</button>
         </div>
     </div>
     <div class="editor-container">
         <div id="root"></div>
-        <!-- <div class="properties-panel">
+        <div class="properties-panel">
             <h3>Properties</h3>
             <div id="properties-content">
                 <p>Select a node or edge to edit properties</p>
             </div>
-        </div> -->
+        </div>
     </div>
     <input type="file" id="file-input" accept=".awf.json,.json,application/json" style="display: none;">
 

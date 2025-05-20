@@ -53,6 +53,34 @@ window.handleOpen = async () => {
     
 };
 
+// Function to handle Add Node button click
+window.handleAddNode = () => {
+  if (workflowVisualizerRef) {
+    const nodeName = prompt("Enter node name:", "New Node");
+    if (nodeName) {
+      const nodeDescription = prompt("Enter node description:", "Description");
+      workflowVisualizerRef.addNode(nodeName, nodeDescription);
+      // Save to session after adding node
+      handleSaveSession();
+    }
+  } else {
+    alert("Workflow visualizer not initialized.");
+  }
+};
+
+// Function to handle updating node properties
+window.handleUpdateNodeProperties = (nodeId) => {
+  if (workflowVisualizerRef) {
+    const name = document.getElementById('node-name').value;
+    const description = document.getElementById('node-description').value;
+    
+    workflowVisualizerRef.updateNodeProperties(nodeId, name, description);
+    
+    // Save to session after updating node
+    handleSaveSession();
+  }
+};
+
 // Get reference from the component
 window.setWorkflowVisualizerRef = (ref) => {
     workflowVisualizerRef = ref;    

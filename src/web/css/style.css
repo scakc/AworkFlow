@@ -4,3 +4,53 @@
     position: relative;
     user-select: none;
 }
+
+.floating-properties-panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 250px;
+  padding: 15px;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  z-index: 10;
+  border-radius: 5px;
+}
+
+.floating-properties-panel h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.floating-properties-panel label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.floating-properties-panel input,
+.floating-properties-panel textarea {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.floating-properties-panel textarea {
+  height: 100px;
+  resize: vertical;
+}
+
+.floating-properties-panel button {
+  padding: 8px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.floating-properties-panel button:hover {
+  background-color: #45a049;
+}
