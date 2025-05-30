@@ -15,6 +15,8 @@ export default function WorkflowVisualizer() {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedEdge, setSelectedEdge] = useState(null);
+
 
   // Inside your component, add a ref for the flow
   const reactFlowWrapper = useRef(null);
@@ -32,9 +34,37 @@ export default function WorkflowVisualizer() {
       addNode,
       updateNodeProperties,
       saveWorkflow,
+      deleteNode,
+      deleteEdge
     });
   }, []);
 
+  // Add this hook for keyboard deletion
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        // Delete selected node if one is selected
+        if (selectedNode) {
+          deleteNode(selectedNode.id);
+          setSelectedNode(null);
+          return;
+        }
+        
+        // If no node is selected, check if an edge is selected
+        // ReactFlow adds the 'selected' class to selected edges
+        console.log("deleted", selectedEdge);
+        if (selectedEdge) {
+          deleteEdge(selectedEdge);
+          setSelectedEdge(null);
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedNode, selectedEdge, deleteNode, deleteEdge]);
 
   // Function to load workflow data
   const loadWorkflow = (data) => {
@@ -124,6 +154,26 @@ export default function WorkflowVisualizer() {
     
     return newId;
   };
+
+  // Add this function to your WorkflowVisualizer component
+  const deleteNode = useCallback((nodeId) => {
+    setNodes((nds) => nds.filter(node => node.id !== nodeId));
+    setEdges((eds) => eds.filter(edge => edge.source !== nodeId && edge.target !== nodeId));
+    
+    // Update memory
+    memory.nodes = memory.nodes.filter(node => node.id !== nodeId);
+    memory.edges = memory.edges.filter(edge => edge.source !== nodeId && edge.target !== nodeId);
+    saveWorkflow(memory);
+  }, []);
+
+  // Add this function to delete edges
+  const deleteEdge = useCallback((edgeId) => {
+    setEdges((eds) => eds.filter(edge => edge.id !== edgeId));
+    
+    // Update memory
+    memory.edges = memory.edges.filter(edge => edge.id !== edgeId);
+    saveWorkflow(memory);
+  }, []);
 
   // Function to update node properties
   const updateNodeProperties = (nodeId, name, description) => {
@@ -217,9 +267,17 @@ export default function WorkflowVisualizer() {
     setSelectedNode({...node, panelPosition});
   };
 
+  // Add this handler for edge selection
+  const onEdgeClick = (event, edge) => {
+    setSelectedEdge(edge.id);
+    // console.log("Edge clicked:", selectedEdge); // Debug log
+    setSelectedNode(null); // Deselect any selected node
+  };
+
   // Handle background click to close properties panel
   const onPaneClick = () => {
-    setSelectedNode(null);
+  setSelectedNode(null);
+  setSelectedEdge(null);
   };
 
   return (
@@ -232,6 +290,7 @@ export default function WorkflowVisualizer() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
       >
         <Background />
