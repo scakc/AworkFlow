@@ -89,7 +89,34 @@ window.setWorkflowVisualizerRef = (ref) => {
 // Save the loaded workflow to local session
 window.handleSaveSession = () => {
     workflowVisualizerRef.saveWorkflow();
-}
+};
+
+// File operations for the workflow editor
+window.handleSaveSessionToFile = () => {
+  // Get workflow data from the visualizer
+  const workflowData = workflowVisualizerRef.getWorkflow(null);
+  
+  // Convert to JSON string
+  const jsonData = JSON.stringify(workflowData, null, 2);
+  
+  // Create a blob and download link
+  const blob = new Blob([jsonData], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  
+  // Create download link and trigger download
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'workflow.awf.json';
+  document.body.appendChild(a);
+  a.click();
+  
+  // Clean up
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 0);
+};
+
 
 // Load the workflow from local session
 window.handleLoadSession = () => {
@@ -100,12 +127,12 @@ window.handleLoadSession = () => {
     } else {
         alert("No saved session found.");
     }
-}
+};
 
 // Clear the session
 window.handleClearSession = () => {
     sessionStorage.removeItem("workflowData");
-}
+};
 
 // On page load, check if there is a saved session
 window.onload = () => {
@@ -114,4 +141,4 @@ window.onload = () => {
         const parsedData = JSON.parse(data);
         workflowVisualizerRef.loadWorkflow(parsedData);
     }
-}
+};

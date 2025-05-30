@@ -80,14 +80,19 @@ export default function WorkflowVisualizer() {
     sessionStorage.setItem("workflowData", JSON.stringify(workflowData));
   };
 
-  const getWorkflow = (memory) => {
+  const getWorkflow = (input_memory=null) => {
+
+    if ((input_memory == undefined) || (input_memory == null)) {
+      input_memory = memory;
+    }
+
     return {
-      nodes: memory.nodes.map((n) => ({
+      nodes: input_memory.nodes.map((n) => ({
         ...n.data, 
         id : n.id,
         position: n.position
       })),
-      edges: memory.edges.map((e) => ({
+      edges: input_memory.edges.map((e) => ({
         source: e.source,
         target: e.target,
       })),
