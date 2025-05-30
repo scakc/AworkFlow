@@ -2,12 +2,14 @@
   "nodes": [
     {
       "id": "1",
-      "name": "Task 1",
+      "class": "DescriptionNode",
+      "label": "Task 1",
       "description": "This is the first task"
     },
     {
       "id": "2",
-      "name": "Task 2",
+      "class": "DescriptionNode",
+      "label": "Task 2",
       "description": "This is the second task"
     }
   ],

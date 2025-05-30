@@ -88,9 +88,7 @@ window.setWorkflowVisualizerRef = (ref) => {
 
 // Save the loaded workflow to local session
 window.handleSaveSession = () => {
-    const data = workflowVisualizerRef.getWorkflow();
-    console.log("Saving workflow to session:", data);
-    sessionStorage.setItem("workflowData", JSON.stringify(data));
+    workflowVisualizerRef.saveWorkflow();
 }
 
 // Load the workflow from local session

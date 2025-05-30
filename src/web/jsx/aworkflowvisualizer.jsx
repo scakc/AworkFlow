@@ -9,6 +9,7 @@ import ReactFlow, {
   Position
 } from "reactflow";
 import "reactflow/dist/style.css";
+import { createWorkflowFromData } from "./core/workflow-factory";
 
 export default function WorkflowVisualizer() {
   const [nodes, setNodes] = useState([]);
@@ -30,15 +31,23 @@ export default function WorkflowVisualizer() {
       getWorkflow,
       addNode,
       updateNodeProperties,
+      saveWorkflow,
     });
   }, []);
 
+
   // Function to load workflow data
   const loadWorkflow = (data) => {
+    // Create a workflow instance using our TypeScript classes
+    const workflow = createWorkflowFromData(data);
+    
+    // Get the data representation
+    const workflowData = workflow.get_data();
+    
     // Map nodes
-    const loadedNodes = data.nodes.map((n, index) => ({
+    const loadedNodes = workflowData.nodes.map((n, index) => ({
       id: n.id,
-      data: { ...n, label: `${n.name}` },
+      data: { ...n },
       position: n.position || { x: index * 200, y: 100 },
       type: 'default',
       sourcePosition: 'right',
@@ -46,7 +55,7 @@ export default function WorkflowVisualizer() {
     }));
 
     // Map edges
-    const loadedEdges = data.edges.map((e) => ({
+    const loadedEdges = workflowData.edges.map((e) => ({
       id: `e${e.source}-${e.target}`,
       source: e.source,
       target: e.target,
@@ -60,7 +69,18 @@ export default function WorkflowVisualizer() {
     memory.edges = loadedEdges;
   };
 
-  const getWorkflow = () => {
+  const saveWorkflow = (input_memory = null) => {
+
+    if ((input_memory == undefined) || (input_memory == null)) {
+      input_memory = memory;
+    }
+
+    const workflowData = getWorkflow(input_memory);
+    console.log("saved", memory, workflowData);
+    sessionStorage.setItem("workflowData", JSON.stringify(workflowData));
+  };
+
+  const getWorkflow = (memory) => {
     return {
       nodes: memory.nodes.map((n) => ({
         ...n.data, 
@@ -107,13 +127,15 @@ export default function WorkflowVisualizer() {
         if (node.id === nodeId) {
           return {
             ...node,
-            data: { ...node.data, label: `${name}` }
+            data: { ...node.data, label: name}
           };
         }
         return node;
       });
       
       memory.nodes = updatedNodes;
+      console.log("updated", memory.nodes);
+      saveWorkflow(memory);
       return updatedNodes;
     });
 
@@ -124,17 +146,21 @@ export default function WorkflowVisualizer() {
   const onNodesChange = (changes) => {
     setNodes((nds) => {
       const updatedNodes = applyNodeChanges(changes, nds);
-
-      // TODO: Fix position update
-      updatedNodes.data = {...updatedNodes.data, "position": nds.position}
-  
-      // Update memory with the new node positions
-      memory.nodes = updatedNodes;
-      // Save to session when nodes change position
-      setTimeout(() => window.handleSaveSession(), 0);
       return updatedNodes;
     });
   };
+
+  // Add this handler function
+  const onNodeDragStop = useCallback(() => {
+
+    setNodes((nds) => {
+      // Update memory with the new node positions
+      memory.nodes = nds;
+
+      saveWorkflow();
+      return nds;
+    });
+  }, []);
   
   const onEdgesChange = (changes) => {
     setEdges((eds) => {
@@ -155,7 +181,7 @@ export default function WorkflowVisualizer() {
       return updatedEdges;
     });
 
-    window.handleSaveSession();
+    saveWorkflow();
 
   }, []);
 
@@ -197,6 +223,7 @@ export default function WorkflowVisualizer() {
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
+        onNodeDragStop={onNodeDragStop}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
@@ -240,7 +267,6 @@ export default function WorkflowVisualizer() {
               const name = document.getElementById('node-name').value;
               const description = document.getElementById('node-description').value;
               updateNodeProperties(selectedNode.id, name, description);
-              window.handleSaveSession();
             }}
           >
             Update
