@@ -17,6 +17,18 @@ export default function WorkflowVisualizer() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedEdge, setSelectedEdge] = useState(null);
 
+  const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
+  const reactFlowInstance = useRef(null);
+
+  const onInit = useCallback((instance) => {
+    reactFlowInstance.current = instance;
+  }, []);
+
+  const onMoveEnd = useCallback((event, viewport) => {
+    memory.viewport = viewport;
+    saveWorkflow();
+  }, []);
+
 
   // Inside your component, add a ref for the flow
   const reactFlowWrapper = useRef(null);
@@ -68,6 +80,7 @@ export default function WorkflowVisualizer() {
 
   // Function to load workflow data
   const loadWorkflow = (data) => {
+    console.log(data);
     // Create a workflow instance using our TypeScript classes
     const workflow = createWorkflowFromData(data);
     
@@ -93,6 +106,16 @@ export default function WorkflowVisualizer() {
 
     setNodes(loadedNodes);
     setEdges(loadedEdges);
+
+    console.log(workflow.viewport, reactFlowInstance.current);
+
+    // Load viewport if available
+    if (workflowData.viewport && reactFlowInstance.current) {
+      console.log("we are ere")
+      const { x, y, zoom } = workflowData.viewport;
+      reactFlowInstance.current.setViewport({ x, y, zoom });
+      setViewport(workflowData.viewport);
+    }
     
     // Save to memory
     memory.nodes = loadedNodes;
@@ -108,6 +131,9 @@ export default function WorkflowVisualizer() {
     const workflowData = getWorkflow(input_memory);
     console.log("saved", memory, workflowData);
     sessionStorage.setItem("workflowData", JSON.stringify(workflowData));
+
+    // save to localstorage as well
+    localStorage.setItem("workflowData", JSON.stringify(workflowData));
   };
 
   const getWorkflow = (input_memory=null) => {
@@ -116,17 +142,23 @@ export default function WorkflowVisualizer() {
       input_memory = memory;
     }
 
+    // check if viewport info exists 
+    if (!input_memory.viewport) {
+      input_memory.viewport = { x: 0, y: 0, zoom: 1 };
+    }
+
     return {
       nodes: input_memory.nodes.map((n) => ({
         ...n.data, 
-        id : n.id,
+        id: n.id,
         position: n.position
       })),
       edges: input_memory.edges.map((e) => ({
         source: e.source,
         target: e.target,
       })),
-    }
+      viewport: input_memory.viewport
+    };
   };
 
   // Function to add a new node
@@ -292,8 +324,12 @@ export default function WorkflowVisualizer() {
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
+        onInit={onInit}
+        onMoveEnd={onMoveEnd}
+        defaultViewport={viewport}
       >
         <Background />
+        <Controls />
       </ReactFlow>
       {selectedNode && (
         <div 

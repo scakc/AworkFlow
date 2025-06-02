@@ -121,6 +121,17 @@ window.handleSaveSessionToFile = () => {
 // Load the workflow from local session
 window.handleLoadSession = () => {
     const data = sessionStorage.getItem("workflowData");
+
+    // if data is null try to load from localstorage
+    if (data == null) {
+        const localData = localStorage.getItem("workflowData");
+        if (localData) {
+            const parsedData = JSON.parse(localData);
+            workflowVisualizerRef.loadWorkflow(parsedData);
+            return;
+        }
+    }
+
     if (data) {
         const parsedData = JSON.parse(data);
         workflowVisualizerRef.loadWorkflow(parsedData);
@@ -136,9 +147,28 @@ window.handleClearSession = () => {
 
 // On page load, check if there is a saved session
 window.onload = () => {
-    const data = sessionStorage.getItem("workflowData");
-    if (data) {
+    // Wait for the workflow visualizer to be initialized
+  const checkRef = () => {
+    if (workflowVisualizerRef) {
+      const data = sessionStorage.getItem("workflowData");
+      // if data is null try to load from localstorage
+      if (data == null) {
+        const localData = localStorage.getItem("workflowData");
+        if (localData) {
+          const parsedData = JSON.parse(localData);
+          workflowVisualizerRef.loadWorkflow(parsedData);
+          return;
+        }
+      }
+      if (data) {
         const parsedData = JSON.parse(data);
         workflowVisualizerRef.loadWorkflow(parsedData);
+      }
+    } else {
+      // If not available yet, try again after a short delay
+      setTimeout(checkRef, 100);
     }
+  };
+  
+  checkRef();
 };

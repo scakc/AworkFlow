@@ -26,5 +26,5 @@ export function createWorkflowFromData(data: any): BaseWorkflow {
   const nodes = data.nodes.map((nodeData: any) => createNodeFromData(nodeData));
   const edges = data.edges.map((edgeData: any) => new BaseEdge(edgeData.source, edgeData.target));
   
-  return new BaseWorkflow(nodes, edges);
+  return new BaseWorkflow(nodes, edges, data.viewport);
 }

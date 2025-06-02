@@ -38,16 +38,19 @@ export class BaseEdge {
 export class BaseWorkflow {
   nodes: BaseNode[];
   edges: BaseEdge[];
+  viewport?: { x: number; y: number; zoom: number };
 
-  constructor(nodes: BaseNode[], edges: BaseEdge[]) {
+  constructor(nodes: BaseNode[], edges: BaseEdge[], viewport?: { x: number; y: number; zoom: number }) {
     this.nodes = nodes;
     this.edges = edges;
+    this.viewport = viewport;
   }
 
   get_data() {
     return {
       nodes: this.nodes.map(node => node.get_data()),
-      edges: this.edges.map(edge => edge.get_data())
+      edges: this.edges.map(edge => edge.get_data()),
+      viewport: this.viewport
     };
   }
 }
