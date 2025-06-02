@@ -7,13 +7,29 @@ export class BaseNode {
   constructor(id: string, label: string, position?: { x: number; y: number }) {
     this.id = id;
     this.label = label;
+    this.position = position;
   }
 
+  static getUISchema() {
+    return {
+      fields: {
+        label: { type: 'text', label: 'Name', required: true }
+      }
+    };
+  }
+
+  // Define style for DescriptionNode
+  static getNodeStyle(data: any) {
+    return { backgroundColor: '#E0E0E0' }; // Light gray
+  }
+  
   get_data() {
     return {
       id: this.id,
       label: this.label,
-      position: this.position
+      position: this.position,
+      class: this.constructor.name,
+      style: (this.constructor as typeof BaseNode).getNodeStyle(this)
     };
   }
 }

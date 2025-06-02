@@ -9,18 +9,21 @@ import ReactFlow, {
   Position
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { createWorkflowFromData } from "./core/workflow-factory";
+import { createWorkflowFromData, nodeClasses } from "./core/workflow-factory";
+import NodeCreationModal from "./nodecreationmodal";
 
 export default function WorkflowVisualizer() {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedEdge, setSelectedEdge] = useState(null);
-
+  const [showNodeModal, setShowNodeModal] = useState(false);
+  const [nodePosition, setNodePosition] = useState({ x: 0, y: 0 });
+  const [editingNode, setEditingNode] = useState(null);
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
   const reactFlowInstance = useRef(null);
 
-  const onInit = useCallback((instance) => {
+  const onLoad = useCallback((instance) => {
     reactFlowInstance.current = instance;
   }, []);
 
@@ -33,10 +36,11 @@ export default function WorkflowVisualizer() {
   // Inside your component, add a ref for the flow
   const reactFlowWrapper = useRef(null);
 
-  const memory = {
+  const memory = useRef({
     nodes: [],
     edges: [],
-  };
+    viewport: { x: 0, y: 0, zoom: 1 }
+  });
 
   // Expose reference to the window object
   useEffect(() => {
@@ -88,14 +92,18 @@ export default function WorkflowVisualizer() {
     const workflowData = workflow.get_data();
     
     // Map nodes
-    const loadedNodes = workflowData.nodes.map((n, index) => ({
-      id: n.id,
-      data: { ...n },
-      position: n.position || { x: index * 200, y: 100 },
-      type: 'default',
-      sourcePosition: 'right',
-      targetPosition: 'left'
-    }));
+    const loadedNodes = workflowData.nodes.map((n, index) => {
+      // Get style based on node class and data
+      return {
+        id: n.id,
+        data: { ...n },
+        position: n.position || { x: index * 200, y: 100 },
+        type: 'default',
+        sourcePosition: 'right',
+        targetPosition: 'left',
+        style: n.style
+      };
+    });
 
     // Map edges
     const loadedEdges = workflowData.edges.map((e) => ({
@@ -107,32 +115,63 @@ export default function WorkflowVisualizer() {
     setNodes(loadedNodes);
     setEdges(loadedEdges);
 
-    console.log(workflow.viewport, reactFlowInstance.current);
-
     // Load viewport if available
-    if (workflowData.viewport && reactFlowInstance.current) {
-      console.log("we are ere")
-      const { x, y, zoom } = workflowData.viewport;
-      reactFlowInstance.current.setViewport({ x, y, zoom });
+    if (workflowData.viewport) {
       setViewport(workflowData.viewport);
+      
+      // Try to set viewport on the instance if available
+      if (reactFlowInstance.current) {
+        reactFlowInstance.current.setViewport(workflowData.viewport);
+      } else {
+        // If instance not available yet, try again after a short delay
+        setTimeout(() => {
+          if (reactFlowInstance.current) {
+            reactFlowInstance.current.setViewport(workflowData.viewport);
+          }
+        }, 100);
+      }
     }
     
     // Save to memory
     memory.nodes = loadedNodes;
     memory.edges = loadedEdges;
   };
-
+    
   const saveWorkflow = (input_memory = null) => {
-
     if ((input_memory == undefined) || (input_memory == null)) {
       input_memory = memory;
     }
 
-    const workflowData = getWorkflow(input_memory);
-    console.log("saved", memory, workflowData);
-    sessionStorage.setItem("workflowData", JSON.stringify(workflowData));
+    // Check if viewport is available, if not try to get it from reactFlowInstance
+    if (!input_memory.viewport || 
+        (input_memory.viewport.x === 0 && input_memory.viewport.y === 0 && input_memory.viewport.zoom === 1)) {
+      
+      if (reactFlowInstance.current) {
+        input_memory.viewport = reactFlowInstance.current.getViewport();
+      }
+    }
 
-    // save to localstorage as well
+    // If still no viewport, wait a bit and try again
+    if (!input_memory.viewport || 
+        (input_memory.viewport.x === 0 && input_memory.viewport.y === 0 && input_memory.viewport.zoom === 1)) {
+      
+      setTimeout(() => {
+        if (reactFlowInstance.current) {
+          input_memory.viewport = reactFlowInstance.current.getViewport();
+        }
+        
+        // Now save with the updated viewport
+        const workflowData = getWorkflow(input_memory);
+        sessionStorage.setItem("workflowData", JSON.stringify(workflowData));
+        localStorage.setItem("workflowData", JSON.stringify(workflowData));
+      }, 100);
+      
+      return; // Exit early, the timeout will handle saving
+    }
+
+    // If we have a viewport, save immediately
+    const workflowData = getWorkflow(input_memory);
+    sessionStorage.setItem("workflowData", JSON.stringify(workflowData));
     localStorage.setItem("workflowData", JSON.stringify(workflowData));
   };
 
@@ -144,15 +183,21 @@ export default function WorkflowVisualizer() {
 
     // check if viewport info exists 
     if (!input_memory.viewport) {
+      console.log("Missing viewport");
       input_memory.viewport = { x: 0, y: 0, zoom: 1 };
     }
 
     return {
-      nodes: input_memory.nodes.map((n) => ({
-        ...n.data, 
-        id: n.id,
-        position: n.position
-      })),
+      nodes: input_memory.nodes.map((n) => {
+        // Extract all data except style
+        const { style, ...nodeData } = n.data;
+        
+        return {
+          ...nodeData, 
+          id: n.id,
+          position: n.position
+        };
+      }),
       edges: input_memory.edges.map((e) => ({
         source: e.source,
         target: e.target,
@@ -299,6 +344,14 @@ export default function WorkflowVisualizer() {
     setSelectedNode({...node, panelPosition});
   };
 
+  // Handle node double-click for editing
+  const onNodeDoubleClick = (event, node) => {
+    event.stopPropagation();
+    setEditingNode(node);
+    setNodePosition(node.position);
+    setShowNodeModal(true);
+  };
+
   // Add this handler for edge selection
   const onEdgeClick = (event, edge) => {
     setSelectedEdge(edge.id);
@@ -307,9 +360,22 @@ export default function WorkflowVisualizer() {
   };
 
   // Handle background click to close properties panel
-  const onPaneClick = () => {
-  setSelectedNode(null);
-  setSelectedEdge(null);
+  const onPaneClick = (event) => {
+
+    // If shift key is pressed, create a new node
+    if (event.shiftKey && reactFlowInstance.current) {
+      const position = reactFlowInstance.current.project({
+        x: event.clientX,
+        y: event.clientY
+      });
+      setNodePosition(position);
+      setShowNodeModal(true);
+      return;
+    }
+    
+    setSelectedNode(null);
+    setSelectedEdge(null);
+    setEditingNode(null);
   };
 
   return (
@@ -322,63 +388,25 @@ export default function WorkflowVisualizer() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
-        onInit={onInit}
+        onInit={onLoad}
         onMoveEnd={onMoveEnd}
         defaultViewport={viewport}
       >
         <Background />
         <Controls />
       </ReactFlow>
-      {selectedNode && (
-        <div 
-          className="floating-properties-panel"
-          style={{
-            position: "absolute",
-            top: `${selectedNode.panelPosition?.y || 10}px`,
-            left: `${selectedNode.panelPosition?.x + 10 || 10}px`,
-            width: "250px",
-            padding: "15px",
-            backgroundColor: "white",
-            boxShadow: "0 0 10px rgba(0,0,0,0.2)",
-            zIndex: 10,
-            borderRadius: "5px"
-          }}
-        >
-          <h3>Node Properties</h3>
-          <div>
-            <label htmlFor="node-name">Name:</label>
-            <input 
-              type="text" 
-              id="node-name" 
-              defaultValue={selectedNode.data.name || selectedNode.data.label} 
-            />
-          </div>
-          <div>
-            <label htmlFor="node-description">Description:</label>
-            <textarea 
-              id="node-description" 
-              defaultValue={selectedNode.data.description || ""}
-            />
-          </div>
-          <button 
-            onClick={() => {
-              const name = document.getElementById('node-name').value;
-              const description = document.getElementById('node-description').value;
-              updateNodeProperties(selectedNode.id, name, description);
-            }}
-          >
-            Update
-          </button>
-          <button 
-            onClick={() => setSelectedNode(null)}
-            style={{ marginLeft: "10px", backgroundColor: "#ccc" }}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
+      {showNodeModal && <NodeCreationModal
+          nodePosition={nodePosition}
+          setShowNodeModal={setShowNodeModal}
+          setNodes={setNodes}
+          memory={memory}
+          saveWorkflow={saveWorkflow}
+          editingNode={editingNode}
+          setEditingNode={setEditingNode}
+        />}
     </div>
   );
 }
