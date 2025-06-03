@@ -98,3 +98,55 @@ export class DescriptionNode extends BaseNode {
     };
   }
 }
+
+export class GroupNode extends BaseNode {
+  width: number;
+  height: number;
+  children: string[] = []; // IDs of child nodes
+  
+  constructor(id: string, label: string, props: Record<string, any> = {}) {
+    const { position, width = 300, height = 200, ...otherProps } = props;
+    super(id, label, position);
+    this.width = width;
+    this.height = height;
+    
+    // Add any additional properties
+    Object.assign(this, otherProps);
+  }
+  
+  // Override UI schema to add group-specific fields
+  static getUISchema() {
+    return {
+      fields: {
+        ...BaseNode.getUISchema().fields
+        // width: { type: 'number', label: 'Width', required: true },
+        // height: { type: 'number', label: 'Height', required: true }
+      }
+    };
+  }
+
+  // Define style for GroupNode
+  static getNodeStyle() {
+    return { 
+      backgroundColor: 'rgba(240, 240, 240, 0.7)',
+      border: '1px solid #ddd',
+      borderRadius: '5px',
+      padding: '10px',
+      min_widht: '300px',
+      min_height: '200px',
+      zIndex: 0 // Ensure group nodes are rendered below other nodes
+    };
+  }
+  
+  get_data() {
+    return {
+      ...super.get_data(),
+      width: this.width,
+      height: this.height,
+      children: this.children,
+      class: 'GroupNode',
+      isGroup: true,
+      style: GroupNode.getNodeStyle()
+    };
+  }
+}

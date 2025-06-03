@@ -1,12 +1,13 @@
 // workflow-factory.ts
 import { BaseNode, BaseEdge, BaseWorkflow } from './workflow-core';
-import { DescriptionNode, StatusNode } from './basic-nodes';
+import { DescriptionNode, StatusNode, GroupNode } from './basic-nodes';
 
 // Registry of available node classes
 export const nodeClasses: { [key: string]: any } = {
   'BaseNode': BaseNode,
   'DescriptionNode': DescriptionNode,
-  'StatusNode': StatusNode
+  'StatusNode': StatusNode,
+  'GroupNode': GroupNode
 };
 
 // Add this function to get UI schema for a node type
@@ -20,7 +21,8 @@ export function getAvailableNodeTypes() {
   return [
     { value: 'BaseNode', label: 'BaseNode' },
     { value: 'DescriptionNode', label: 'DescriptionNode' },
-    { value: 'StatusNode', label: 'StatusNode' }
+    { value: 'StatusNode', label: 'StatusNode' },
+    { value: 'GroupNode', label: 'GroupNode' }
   ];
 }
 

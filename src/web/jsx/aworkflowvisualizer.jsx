@@ -32,6 +32,17 @@ export default function WorkflowVisualizer() {
     saveWorkflow();
   }, []);
 
+  // Function to check if a node is inside a group node
+  const isNodeInsideGroup = (nodePosition, groupNode) => {
+    var isNodeInside = (
+      nodePosition.x > groupNode.position.x &&
+      nodePosition.x < groupNode.position.x + parseInt(groupNode.data.width) &&
+      nodePosition.y > groupNode.position.y &&
+      nodePosition.y < groupNode.position.y + parseInt(groupNode.data.height)
+    );
+    console.log(nodePosition, groupNode, isNodeInside);
+    return isNodeInside
+  };
 
   // Inside your component, add a ref for the flow
   const reactFlowWrapper = useRef(null);
@@ -58,7 +69,7 @@ export default function WorkflowVisualizer() {
   // Add this hook for keyboard deletion
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Delete' || event.key === 'Backspace') {
+      if (event.key === 'Delete') {
         // Delete selected node if one is selected
         if (selectedNode) {
           deleteNode(selectedNode.id);
@@ -282,17 +293,114 @@ export default function WorkflowVisualizer() {
     });
   };
 
-  // Add this handler function
-  const onNodeDragStop = useCallback(() => {
+  // Function to update group node dimensions based on its children
+  const updateGroupNodeDimensions = (groupId) => {
+    setNodes(nds => {
+      const childrenOfGroup = nds.filter(n => n.parentNode === groupId);
+      if (childrenOfGroup.length === 0) return nds;
+      
+      // Find min/max positions of all children
+      let minX = Infinity, minY = Infinity;
+      let maxX = -Infinity, maxY = -Infinity;
+      
+      childrenOfGroup.forEach(child => {
+        const nodeWidth = 150;  // Approximate node width
+        const nodeHeight = 50;  // Approximate node height
+        
+        minX = Math.min(minX, child.position.x);
+        minY = Math.min(minY, child.position.y);
+        maxX = Math.max(maxX, child.position.x + nodeWidth);
+        maxY = Math.max(maxY, child.position.y + nodeHeight);
+      });
+      
+      // Add padding
+      const padding = 30;
+      
+      // Update the parent group node dimensions
+      return nds.map(n => {
+        if (n.id === groupId) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              width: Math.max(200, maxX + padding * 2),
+              height: Math.max(150, maxY + padding * 2)
+            }
+          };
+        }
+        return n;
+      });
+    });
+  };
 
+  // Update your onNodeDragStop function
+  const onNodeDragStop = useCallback((event, node) => {
+    // First, check if the node is being dragged out of its parent
+    if (node.parentNode) {
+      const parentNode = nodes.find(n => n.id === node.parentNode);
+      const parent_position = parentNode.position;
+      const node_absolute_position = { x: node.position.x + parent_position.x, y: node.position.y + parent_position.y }
+      if (parentNode && !isNodeInsideGroup(node_absolute_position, parentNode)) {
+        // Node was dragged outside its parent, remove the parent relationship
+        setNodes(nds => {
+          const updatedNodes = nds.map(n => {
+            if (n.id === node.id) {
+              const { parentNode, ...nodeWithoutParent } = n;
+              return {
+                ...nodeWithoutParent,
+                position: {
+                  x: parentNode.position.x + n.position.x,
+                  y: parentNode.position.y + n.position.y
+                }
+              };
+            }
+            return n;
+          });
+          memory.nodes = updatedNodes;
+          return updatedNodes;
+        });
+      }
+
+      updateGroupNodeDimensions(parentNode);
+    } else {
+      // Check if the node was dragged into any group node
+      const groupNodes = nodes.filter(n => n.data.isGroup && n.id !== node.id);
+      
+      for (const groupNode of groupNodes) {
+        if (isNodeInsideGroup(node.position, groupNode)) {
+          // Node was dragged inside a group, make it a child
+          setNodes(nds => {
+            const updatedNodes = nds.map(n => {
+              if (n.id === node.id) {
+                return {
+                  ...n,
+                  parentNode: groupNode.id,
+                  extent: 'parent',
+                  position: {
+                    x: n.position.x - groupNode.position.x,
+                    y: n.position.y - groupNode.position.y
+                  }
+                };
+              }
+              return n;
+            });
+            memory.nodes = updatedNodes;
+            return updatedNodes;
+          });
+
+          updateGroupNodeDimensions(groupNode);
+          break;
+        }
+      }
+    }
+
+    // Update memory with the new node positions
     setNodes((nds) => {
-      // Update memory with the new node positions
       memory.nodes = nds;
-
       saveWorkflow();
       return nds;
     });
-  }, []);
+  }, [nodes]);
   
   const onEdgesChange = (changes) => {
     setEdges((eds) => {
