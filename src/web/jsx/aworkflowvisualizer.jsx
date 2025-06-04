@@ -6,11 +6,17 @@ import ReactFlow, {
   addEdge,
   Controls,
   Handle,
-  Position
+  Position,
+  NodeResizer
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { createWorkflowFromData, nodeClasses } from "./core/workflow-factory";
+import { customMap as basicNodesMap } from './core/basic-nodes';
 import NodeCreationModal from "./nodecreationmodal";
+
+const nodeTypes = {
+  ...basicNodesMap
+}
 
 export default function WorkflowVisualizer() {
   const [nodes, setNodes] = useState([]);
@@ -98,22 +104,45 @@ export default function WorkflowVisualizer() {
     console.log(data);
     // Create a workflow instance using our TypeScript classes
     const workflow = createWorkflowFromData(data);
-    
     // Get the data representation
     const workflowData = workflow.get_data();
-    
     // Map nodes
     const loadedNodes = workflowData.nodes.map((n, index) => {
       // Get style based on node class and data
-      return {
+      var node_ = {
         id: n.id,
         data: { ...n },
         position: n.position || { x: index * 200, y: 100 },
         type: 'default',
         sourcePosition: 'right',
         targetPosition: 'left',
-        style: n.style
+        style: n.style,
       };
+
+      // Get style and type
+      if (n.type) {
+        console.log(n);
+        node_ = {...node_, type: n.type}
+      }
+
+      // check if data has parentid
+      if (n.parentNodeId) {
+        // check if parent exists
+        const parent = workflowData.nodes.find((p) => p.id === n.parentNodeId);
+
+        if (parent) {
+          // check if parent is a group node
+          if (parent.type === 'GroupNode') {
+              node_ = {...node_, parentNode: n.parentNodeId}
+          }
+        }
+        else {
+          const {parentNodeId, ...newdata} = node_.data;
+          node_ = {...node_, data: newdata}
+        }
+      }
+
+      return node_;
     });
 
     // Map edges
@@ -245,13 +274,40 @@ export default function WorkflowVisualizer() {
 
   // Add this function to your WorkflowVisualizer component
   const deleteNode = useCallback((nodeId) => {
-    setNodes((nds) => nds.filter(node => node.id !== nodeId));
-    setEdges((eds) => eds.filter(edge => edge.source !== nodeId && edge.target !== nodeId));
+    // Check if the node being deleted is a parent to any other nodes
+    setNodes((nds) => {
+      // First remove parent references from any child nodes
+      var updatedNodes = nds.map(node => {
+        if (node.parentNode === nodeId) {
+          // Remove parent reference and update position to absolute
+          const { parentNode, ...nodeWithoutParent } = node;
+          const { parentNodeId, ...nodeData } = nodeWithoutParent.data;
+          const parentNodeInstance = nds.find(n => n.id === parentNode);
+          const newPosition = {x: parentNodeInstance.position.x + node.position.x, y: parentNodeInstance.position.y + node.position.y}
+          return {
+            ...nodeWithoutParent,
+            data: {...nodeData, position: newPosition},
+            position: newPosition
+          };
+        }
+        return node;
+      });
+
+      // Then filter out the deleted node
+      updatedNodes = updatedNodes.filter(node => node.id !== nodeId);
+      memory.nodes = updatedNodes
+      return updatedNodes;
+    });
     
-    // Update memory
-    memory.nodes = memory.nodes.filter(node => node.id !== nodeId);
-    memory.edges = memory.edges.filter(edge => edge.source !== nodeId && edge.target !== nodeId);
+    setEdges((eds) => {
+      var updated_edges = eds.filter(edge => edge.source !== nodeId && edge.target !== nodeId)
+      memory.edges = updated_edges;
+      return updated_edges;
+    });
+    
+    console.log("second", memory);
     saveWorkflow(memory);
+
   }, []);
 
   // Add this function to delete edges
@@ -294,7 +350,8 @@ export default function WorkflowVisualizer() {
   };
 
   // Function to update group node dimensions based on its children
-  const updateGroupNodeDimensions = (groupId) => {
+  const updateGroupNodeDimensions = (groupnode) => {
+    const groupId = groupnode.id;
     setNodes(nds => {
       const childrenOfGroup = nds.filter(n => n.parentNode === groupId);
       if (childrenOfGroup.length === 0) return nds;
@@ -319,12 +376,20 @@ export default function WorkflowVisualizer() {
       // Update the parent group node dimensions
       return nds.map(n => {
         if (n.id === groupId) {
+
+          var newWidth =  Math.max(groupnode.width, maxX + padding * 2);
+          var newHeight = Math.max(groupnode.height, maxY + padding * 2);
           return {
             ...n,
             data: {
               ...n.data,
-              width: Math.max(200, maxX + padding * 2),
-              height: Math.max(150, maxY + padding * 2)
+              width: newWidth,
+              height: newHeight
+            },
+            style: {
+              ...n.style,
+              width: newWidth,
+              height: newHeight
             }
           };
         }
@@ -346,36 +411,43 @@ export default function WorkflowVisualizer() {
           const updatedNodes = nds.map(n => {
             if (n.id === node.id) {
               const { parentNode, ...nodeWithoutParent } = n;
+              const { parentNodeId, ... nodeData } = nodeWithoutParent.data;
+              const parentNodeById = nodes.find(n => n.id === parentNode);
+              console.log(parentNodeById, nodeWithoutParent);
               return {
                 ...nodeWithoutParent,
+                data: nodeData,
                 position: {
-                  x: parentNode.position.x + n.position.x,
-                  y: parentNode.position.y + n.position.y
+                  x: nodeWithoutParent.positionAbsolute.x || n.position.x,
+                  y: nodeWithoutParent.positionAbsolute.y || n.position.y
                 }
               };
             }
-            return n;
+            return {...n, position: n.positionAbsolute || n.position};
           });
           memory.nodes = updatedNodes;
           return updatedNodes;
         });
       }
-
-      updateGroupNodeDimensions(parentNode);
     } else {
       // Check if the node was dragged into any group node
       const groupNodes = nodes.filter(n => n.data.isGroup && n.id !== node.id);
       
       for (const groupNode of groupNodes) {
-        if (isNodeInsideGroup(node.position, groupNode)) {
+        if (isNodeInsideGroup(node.position, groupNode) && node.parentNode != groupNode.id) {
+          console.log("inbound", node, groupNode);
           // Node was dragged inside a group, make it a child
           setNodes(nds => {
             const updatedNodes = nds.map(n => {
               if (n.id === node.id) {
+                console.log(node, groupNode)
                 return {
                   ...n,
                   parentNode: groupNode.id,
-                  extent: 'parent',
+                  data: {
+                    ...n.data,
+                    parentNodeId: groupNode.id
+                  },
                   position: {
                     x: n.position.x - groupNode.position.x,
                     y: n.position.y - groupNode.position.y
@@ -470,6 +542,9 @@ export default function WorkflowVisualizer() {
   // Handle background click to close properties panel
   const onPaneClick = (event) => {
 
+    // 
+    event.stopPropagation();
+
     // If shift key is pressed, create a new node
     if (event.shiftKey && reactFlowInstance.current) {
       const position = reactFlowInstance.current.project({
@@ -496,6 +571,7 @@ export default function WorkflowVisualizer() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
+        nodeTypes={nodeTypes}
         onNodeDoubleClick={onNodeDoubleClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}

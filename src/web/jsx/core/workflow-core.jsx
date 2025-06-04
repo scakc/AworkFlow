@@ -1,13 +1,12 @@
-// workflow-core.ts
+// workflow-core.jsx
 export class BaseNode {
-  id: string;
-  label: string;
-  position?: { x: number; y: number };
-
-  constructor(id: string, label: string, position?: { x: number; y: number }) {
+  constructor(id, label, position, width, height) {
     this.id = id;
     this.label = label;
     this.position = position;
+    this.width = width || null;
+    this.height = height || null;
+    this.parentNodeId = null;
   }
 
   static getUISchema() {
@@ -19,26 +18,47 @@ export class BaseNode {
   }
 
   // Define style for DescriptionNode
-  static getNodeStyle(data: any) {
-    return { backgroundColor: '#E0E0E0' }; // Light gray
+  getNodeStyle() {
+    var ret_data = { backgroundColor: '#FFFFFF' }; 
+    if (this.width) {
+      ret_data.width = this.width;
+    }
+
+    if (this.height) {
+      ret_data.height = this.height;
+    }
+
+    return ret_data;
   }
   
   get_data() {
-    return {
+
+    var ret_data = {
       id: this.id,
       label: this.label,
       position: this.position,
       class: this.constructor.name,
-      style: (this.constructor as typeof BaseNode).getNodeStyle(this)
+      style: this.getNodeStyle()
     };
+
+    if (this.width) {
+      ret_data.width = this.width;
+    }
+
+    if (this.height) {
+      ret_data.height = this.height;
+    }
+    
+    if (this.parentNodeId){
+      ret_data.parentNodeId = this.parentNodeId;
+    }
+
+    return ret_data;
   }
 }
 
 export class BaseEdge {
-  source: string;
-  target: string;
-
-  constructor(source: string, target: string) {
+  constructor(source, target) {
     this.source = source;
     this.target = target;
   }
@@ -52,11 +72,7 @@ export class BaseEdge {
 }
 
 export class BaseWorkflow {
-  nodes: BaseNode[];
-  edges: BaseEdge[];
-  viewport?: { x: number; y: number; zoom: number };
-
-  constructor(nodes: BaseNode[], edges: BaseEdge[], viewport?: { x: number; y: number; zoom: number }) {
+  constructor(nodes, edges, viewport) {
     this.nodes = nodes;
     this.edges = edges;
     this.viewport = viewport;

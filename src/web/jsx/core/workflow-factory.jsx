@@ -1,9 +1,9 @@
-// workflow-factory.ts
+// workflow-factory.jsx
 import { BaseNode, BaseEdge, BaseWorkflow } from './workflow-core';
 import { DescriptionNode, StatusNode, GroupNode } from './basic-nodes';
 
 // Registry of available node classes
-export const nodeClasses: { [key: string]: any } = {
+export const nodeClasses = {
   'BaseNode': BaseNode,
   'DescriptionNode': DescriptionNode,
   'StatusNode': StatusNode,
@@ -11,7 +11,7 @@ export const nodeClasses: { [key: string]: any } = {
 };
 
 // Add this function to get UI schema for a node type
-export function getNodeUISchema(nodeType: string) {
+export function getNodeUISchema(nodeType) {
   const NodeClass = nodeClasses[nodeType] || BaseNode;
   return NodeClass.getUISchema();
 }
@@ -22,11 +22,12 @@ export function getAvailableNodeTypes() {
     { value: 'BaseNode', label: 'BaseNode' },
     { value: 'DescriptionNode', label: 'DescriptionNode' },
     { value: 'StatusNode', label: 'StatusNode' },
-    { value: 'GroupNode', label: 'GroupNode' }
+    { value: 'GroupNode', label: 'GroupNode' },
+    { value: 'ResizableGroupNode', label: 'GroupNode' },
   ];
 }
 
-export function createNodeFromData(nodeData: any): BaseNode {
+export function createNodeFromData(nodeData) {
   const className = nodeData.class || 'BaseNode';
   const NodeClass = nodeClasses[className] || BaseNode;
   
@@ -39,10 +40,9 @@ export function createNodeFromData(nodeData: any): BaseNode {
   return node;
 }
 
-
-export function createWorkflowFromData(data: any): BaseWorkflow {
-  const nodes = data.nodes.map((nodeData: any) => createNodeFromData(nodeData));
-  const edges = data.edges.map((edgeData: any) => new BaseEdge(edgeData.source, edgeData.target));
+export function createWorkflowFromData(data) {
+  const nodes = data.nodes.map((nodeData) => createNodeFromData(nodeData));
+  const edges = data.edges.map((edgeData) => new BaseEdge(edgeData.source, edgeData.target));
   
   return new BaseWorkflow(nodes, edges, data.viewport);
 }

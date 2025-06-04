@@ -62,19 +62,29 @@ const NodeCreationModal = ({
         };
 
         // Get style based on node type and status
-        console.log("check nodeclass", nodeClasses, nodeType, data.status)
-        const style = nodeClasses[nodeType].getNodeStyle(data.status);
+        var classInstance = new nodeClasses[nodeType](data.id, data.label || '');
+        Object.assign(classInstance, data);
+        const style_node = classInstance.getNodeStyle();
+        const data_new = classInstance.get_data();
+
+        classInstance = null;
 
         if (editingNode) {
             // Update existing node
             setNodes(currentNodes => {
                 const updatedNodes = currentNodes.map(node => {
                     if (node.id === editingNode.id) {
-                    return {
-                        ...node,
-                        data: { ...node.data, ...data },
-                        style: style // Add style here
-                    };
+                        var ret_data = {
+                            ...node,
+                            data: { ...node.data, ...data_new },
+                            style: style_node // Add style here
+                        };
+
+                        if (data_new.type){
+                            ret_data.type = data_new.type;
+                        }
+
+                        return ret_data;
                     }
                     return node;
                 });
@@ -88,13 +98,17 @@ const NodeCreationModal = ({
             const newId = `node_${Date.now()}`;
             const newNode = {
                 id: newId,
-                data: data,
+                data: data_new,
                 position: nodePosition,
                 type: 'default',
                 sourcePosition: 'right',
                 targetPosition: 'left',
-                style: style
+                style: style_node
             };
+            
+            if (data_new.type){
+                newNode.type = data_new.type;
+            }
 
             setNodes(currentNodes => {
                 const updatedNodes = [...currentNodes, newNode];

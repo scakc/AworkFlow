@@ -1,10 +1,12 @@
 import { BaseNode } from './workflow-core';
+// Add this import at the top of your basic-nodes.jsx file
+import React from 'react';
+import { Handle, Position, NodeResizer } from 'reactflow';
 
-// Add this to basic-nodes.tsx
+
+// Add this to basic-nodes.jsx
 export class StatusNode extends BaseNode {
-  status: string;
-  
-  constructor(id: string, label: string, status: string = 'NotStarted', props: Record<string, any> = {}) {
+  constructor(id, label, status = 'NotStarted', props = {}) {
     const { position, ...otherProps } = props;
     super(id, label, position);
     this.status = status;
@@ -34,17 +36,32 @@ export class StatusNode extends BaseNode {
   }
 
   // Override getNodeStyle to return status-based colors
-  static getNodeStyle(currentStatus: string) {
+  getNodeStyle() {
+    var currentStatus = this.status;
+    var ret_data = {};
     switch (currentStatus) {
       case 'InProgress':
-        return { backgroundColor: '#FFE082' }; // Pastel amber
+        ret_data = { backgroundColor: '#FFE082' }; // Pastel amber
+        break;
       case 'Blocked':
-        return { backgroundColor: '#EF9A9A' }; // Pastel red
+        ret_data = { backgroundColor: '#EF9A9A' }; // Pastel red
+        break;
       case 'Completed':
-        return { backgroundColor: '#A5D6A7' }; // Pastel green
+        ret_data = { backgroundColor: '#A5D6A7' }; // Pastel green
+        break;
       default:
-        return { backgroundColor: '#E0E0E0' }; // Pastel gray (Not Started)
+        ret_data = { backgroundColor: '#E0E0E0' }; // Pastel gray (Not Started)
     }
+
+    if (this.width) {
+      ret_data.width = this.width;
+    }
+
+    if (this.height) {
+      ret_data.height = this.height;
+    }
+
+    return ret_data;
   }
   
   get_data() {
@@ -52,16 +69,13 @@ export class StatusNode extends BaseNode {
       ...super.get_data(),
       status: this.status,
       class: 'StatusNode',
-      style: (this.constructor as typeof StatusNode).getNodeStyle(this.status)
+      style: this.getNodeStyle(this.status)
     };
   }
 }
 
 export class DescriptionNode extends BaseNode {
-  description: string;
-  [key: string]: any; // Allow any additional properties
-
-  constructor(id: string, label: string, description: string, props: Record<string, any> = {}) {
+  constructor(id, label, description, props = {}) {
     const { position, ...otherProps } = props;
     super(id, label, position);
     this.description = description;
@@ -81,8 +95,18 @@ export class DescriptionNode extends BaseNode {
   }
 
   // Define style for DescriptionNode
-  static getNodeStyle(data: any) {
-    return { backgroundColor: '#E0E0E0' }; // Light gray
+  getNodeStyle() {
+    var ret_data = { backgroundColor: '#A2BFFE' }; // Light Blue
+    
+    if (this.width) {
+      ret_data.width = this.width;
+    }
+
+    if (this.height) {
+      ret_data.height = this.height;
+    }
+
+    return ret_data;
   }
 
   get_data() {
@@ -94,21 +118,18 @@ export class DescriptionNode extends BaseNode {
       ...additionalProps,
       description: this.description,
       class: this.constructor.name,
-      style: (this.constructor as typeof DescriptionNode).getNodeStyle(this)
+      style: this.getNodeStyle(this)
     };
   }
 }
 
 export class GroupNode extends BaseNode {
-  width: number;
-  height: number;
-  children: string[] = []; // IDs of child nodes
-  
-  constructor(id: string, label: string, props: Record<string, any> = {}) {
+  constructor(id, label, props = {}) {
     const { position, width = 300, height = 200, ...otherProps } = props;
     super(id, label, position);
     this.width = width;
     this.height = height;
+    this.children = []; // IDs of child nodes
     
     // Add any additional properties
     Object.assign(this, otherProps);
@@ -119,23 +140,29 @@ export class GroupNode extends BaseNode {
     return {
       fields: {
         ...BaseNode.getUISchema().fields
-        // width: { type: 'number', label: 'Width', required: true },
-        // height: { type: 'number', label: 'Height', required: true }
       }
     };
   }
 
   // Define style for GroupNode
-  static getNodeStyle() {
-    return { 
+  getNodeStyle() {
+    var ret_data = { 
       backgroundColor: 'rgba(240, 240, 240, 0.7)',
       border: '1px solid #ddd',
       borderRadius: '5px',
       padding: '10px',
-      min_widht: '300px',
-      min_height: '200px',
-      zIndex: 0 // Ensure group nodes are rendered below other nodes
+      zIndex: -1 // Ensure group nodes are rendered below other nodes
     };
+
+    if (this.width) {
+      ret_data.width = this.width;
+    }
+
+    if (this.height) {
+      ret_data.height = this.height;
+    }
+
+    return ret_data;
   }
   
   get_data() {
@@ -146,7 +173,38 @@ export class GroupNode extends BaseNode {
       children: this.children,
       class: 'GroupNode',
       isGroup: true,
-      style: GroupNode.getNodeStyle()
+      type: 'GroupNode',
+      style: this.getNodeStyle()
     };
   }
 }
+
+// Add this component at the end of your basic-nodes.jsx file
+export const ResizableGroupNode = ({ data, selected }) => {
+  return (
+    <>
+      <NodeResizer 
+        minWidth={200}
+        minHeight={150}
+        isVisible={selected}
+        zIndex={-1}
+      />
+      <div style={{ 
+        height: '100%',
+        backgroundColor: data.style?.backgroundColor || 'rgba(240, 240, 240, 0.7)',
+        border: data.style?.border || '1px solid #ddd',
+        borderRadius: data.style?.borderRadius || '5px'
+      }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+          {data.label}
+        </div>
+        <Handle type="target" position={Position.Left} />
+        <Handle type="source" position={Position.Right} />
+      </div>
+    </>
+  );
+};
+
+export const customMap = {
+  'GroupNode': ResizableGroupNode
+};
