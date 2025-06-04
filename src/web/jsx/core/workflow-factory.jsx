@@ -23,7 +23,6 @@ export function getAvailableNodeTypes() {
     { value: 'DescriptionNode', label: 'DescriptionNode' },
     { value: 'StatusNode', label: 'StatusNode' },
     { value: 'GroupNode', label: 'GroupNode' },
-    { value: 'ResizableGroupNode', label: 'GroupNode' },
   ];
 }
 
