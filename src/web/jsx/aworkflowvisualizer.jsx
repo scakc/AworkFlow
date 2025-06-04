@@ -7,6 +7,8 @@ import ReactFlow, {
   Controls,
   Handle,
   Position,
+  useReactFlow,
+  ReactFlowProvider,
   NodeResizer
 } from "reactflow";
 import "reactflow/dist/style.css";
@@ -398,79 +400,99 @@ export default function WorkflowVisualizer() {
     });
   };
 
+  // Create a component that will use the useReactFlow hook
+  function FlowUtilsProvider({ children }) {
+    const reactFlowUtils = useReactFlow();
+    
+    // Make the utils available globally
+    useEffect(() => {
+      window.reactFlowUtils = reactFlowUtils;
+    }, [reactFlowUtils]);
+    
+    return <>{children}</>;
+  }
+
+  const findLowestNodes = (nodes) => {
+      // Create a set of all parent nodes
+      const parentNodes = new Set();
+      for (const node of nodes) {
+          if (node.parentNode) {
+              parentNodes.add(node.parent);
+          }
+      }
+      
+      // Return nodes that aren't parents
+      return nodes.filter(node => !parentNodes.has(node));
+  }
+
   // Update your onNodeDragStop function
   const onNodeDragStop = useCallback((event, node) => {
-    // First, check if the node is being dragged out of its parent
-    if (node.parentNode) {
-      const parentNode = nodes.find(n => n.id === node.parentNode);
-      const parent_position = parentNode.position;
-      const node_absolute_position = { x: node.position.x + parent_position.x, y: node.position.y + parent_position.y }
-      if (parentNode && !isNodeInsideGroup(node_absolute_position, parentNode)) {
-        // Node was dragged outside its parent, remove the parent relationship
-        setNodes(nds => {
-          const updatedNodes = nds.map(n => {
-            if (n.id === node.id) {
-              const { parentNode, ...nodeWithoutParent } = n;
-              const { parentNodeId, ... nodeData } = nodeWithoutParent.data;
-              const parentNodeById = nodes.find(n => n.id === parentNode);
-              console.log(parentNodeById, nodeWithoutParent);
-              return {
-                ...nodeWithoutParent,
-                data: nodeData,
-                position: {
-                  x: nodeWithoutParent.positionAbsolute.x || n.position.x,
-                  y: nodeWithoutParent.positionAbsolute.y || n.position.y
-                }
-              };
-            }
-            return {...n, position: n.positionAbsolute || n.position};
-          });
-          memory.nodes = updatedNodes;
-          return updatedNodes;
-        });
-      }
-    } else {
-      // Check if the node was dragged into any group node
-      const groupNodes = nodes.filter(n => n.data.isGroup && n.id !== node.id);
-      
-      for (const groupNode of groupNodes) {
-        if (isNodeInsideGroup(node.position, groupNode) && node.parentNode != groupNode.id) {
-          console.log("inbound", node, groupNode);
-          // Node was dragged inside a group, make it a child
-          setNodes(nds => {
-            const updatedNodes = nds.map(n => {
-              if (n.id === node.id) {
-                console.log(node, groupNode)
-                return {
-                  ...n,
-                  parentNode: groupNode.id,
-                  data: {
-                    ...n.data,
-                    parentNodeId: groupNode.id
-                  },
-                  position: {
-                    x: n.position.x - groupNode.position.x,
-                    y: n.position.y - groupNode.position.y
-                  }
-                };
-              }
-              return n;
-            });
-            memory.nodes = updatedNodes;
-            return updatedNodes;
-          });
-
-          updateGroupNodeDimensions(groupNode);
-          break;
-        }
-      }
-    }
-
     // Update memory with the new node positions
     setNodes((nds) => {
-      memory.nodes = nds;
+      // Get all group nodes except the current node
+      const nonGroupNodes = nds;
+      console.log("N", nonGroupNodes);
+      var updatesNodes = [];
+      // TODO for all non group nodes find their parent group (if any instersection)
+      // if nested intersection are there then choose the nesting that is lowest level
+      for (let i = 0; i < nonGroupNodes.length; i++) {
+        const node = nonGroupNodes[i];
+        const intersections = window.reactFlowUtils.getIntersectingNodes(node);
+        console.log("NI", intersections);
+        
+        // if intersection is 0 delete parentNode and data.parentNodeId
+        if (intersections.length === 0) {
+          if (node.parentNode) {
+            const parentNodeInstance = nds.find(n => n.id === node.parentNode);
+            node.position = {x: parentNodeInstance.position.x + node.position.x, y: parentNodeInstance.position.y + node.position.y}
+            node.data.position = node.position;
+            delete node.parentNode;
+            delete node.data.parentNodeId;
+          }
+
+          updatesNodes.push(node);
+          continue;
+        }
+
+        // filter all intersecting groupnodes
+        const groupNodes = intersections.filter((n) => n.data.isGroup);
+        console.log("GN", groupNodes);
+
+        // find the lowest level group node, i.e.: that is closese to tree leafs
+        const nonParentNodes = findLowestNodes(groupNodes);
+        console.log("NPGN", nonParentNodes);
+        
+        // if no group nodes are found then continue
+        if (nonParentNodes.length === 0) {
+          updatesNodes.push(node);
+          continue;
+        }
+
+        // pick the first one
+        const parent = nonParentNodes[0];
+
+        // check if parent is same 
+        if (node.parentNode === parent.id) {
+          updatesNodes.push(node);
+          continue;
+        }
+
+        if (parent) {
+          // check if parent is a group node
+          if (parent.type === 'GroupNode') {
+            node.parentNode = parent.id;
+            node.data.parentNodeId = parent.id;
+            node.position = {x: node.position.x - parent.position.x, y: node.position.y - parent.position.y}
+            node.data.position = node.position;
+          }
+        }
+
+        updatesNodes.push(node);
+      }
+
+      memory.nodes = updatesNodes;
       saveWorkflow();
-      return nds;
+      return updatesNodes;
     });
   }, [nodes]);
   
@@ -562,6 +584,7 @@ export default function WorkflowVisualizer() {
   };
 
   return (
+    <ReactFlowProvider>
     <div style={{ width: "100vw", height: "100vh" }}>
       <ReactFlow
         nodes={nodes}
@@ -581,6 +604,7 @@ export default function WorkflowVisualizer() {
       >
         <Background />
         <Controls />
+        <FlowUtilsProvider />
       </ReactFlow>
       {showNodeModal && <NodeCreationModal
           nodePosition={nodePosition}
@@ -591,6 +615,6 @@ export default function WorkflowVisualizer() {
           editingNode={editingNode}
           setEditingNode={setEditingNode}
         />}
-    </div>
+    </div></ReactFlowProvider>
   );
 }
