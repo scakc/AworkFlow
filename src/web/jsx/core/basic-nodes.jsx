@@ -180,7 +180,14 @@ export class GroupNode extends BaseNode {
 }
 
 // Add this component at the end of your basic-nodes.jsx file
-export const ResizableGroupNode = ({ data, selected }) => {
+export const ResizableGroupNode = ({ id, data, selected }) => {
+
+  const nodeResizeHandler = (evt, params) => {
+    // Update node dimensions in your state
+    const { width, height } = params;
+    window.handleResizeNode(id, width, height);
+  };
+
   return (
     <>
       <NodeResizer 
@@ -188,6 +195,8 @@ export const ResizableGroupNode = ({ data, selected }) => {
         minHeight={150}
         isVisible={selected}
         zIndex={-1}
+        onResize={nodeResizeHandler}
+        onResizeEnd={nodeResizeHandler}
       />
       <div style={{ 
         height: '100%',

@@ -86,6 +86,12 @@ window.setWorkflowVisualizerRef = (ref) => {
     workflowVisualizerRef = ref;    
 };
 
+window.handleResizeNode = (id, width, height) => {
+    if (workflowVisualizerRef) {
+        workflowVisualizerRef.updateNodeDimensions(id, width, height);
+    }
+}
+
 // Save the loaded workflow to local session
 window.handleSaveSession = () => {
     workflowVisualizerRef.saveWorkflow();

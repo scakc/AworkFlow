@@ -61,6 +61,36 @@ export default function WorkflowVisualizer() {
     viewport: { x: 0, y: 0, zoom: 1 }
   });
 
+  // Add this function to your component
+  const updateNodeDimensions = (nodeId, width, height) => {
+    
+    setNodes((nds) => {
+      const updatedNodes = nds.map((n) => {
+        if (n.id === nodeId) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              width,
+              height
+            },
+            style: {
+              ...n.style,
+              width,
+              height
+            }
+          };
+        }
+        return n;
+      });
+      
+      memory.nodes = updatedNodes;
+      saveWorkflow();
+      onNodeDragStop();
+      return updatedNodes;
+    });
+  };
+
   // Expose reference to the window object
   useEffect(() => {
     window.setWorkflowVisualizerRef({
@@ -70,7 +100,8 @@ export default function WorkflowVisualizer() {
       updateNodeProperties,
       saveWorkflow,
       deleteNode,
-      deleteEdge
+      deleteEdge,
+      updateNodeDimensions
     });
   }, []);
 
@@ -103,7 +134,6 @@ export default function WorkflowVisualizer() {
 
   // Function to load workflow data
   const loadWorkflow = (data) => {
-    console.log(data);
     // Create a workflow instance using our TypeScript classes
     const workflow = createWorkflowFromData(data);
     // Get the data representation
@@ -123,7 +153,6 @@ export default function WorkflowVisualizer() {
 
       // Get style and type
       if (n.type) {
-        console.log(n);
         node_ = {...node_, type: n.type}
       }
 
@@ -431,14 +460,12 @@ export default function WorkflowVisualizer() {
     setNodes((nds) => {
       // Get all group nodes except the current node
       const nonGroupNodes = nds;
-      console.log("N", nonGroupNodes);
       var updatesNodes = [];
       // TODO for all non group nodes find their parent group (if any instersection)
       // if nested intersection are there then choose the nesting that is lowest level
       for (let i = 0; i < nonGroupNodes.length; i++) {
         const node = nonGroupNodes[i];
         const intersections = window.reactFlowUtils.getIntersectingNodes(node);
-        console.log("NI", intersections);
         
         // if intersection is 0 delete parentNode and data.parentNodeId
         if (intersections.length === 0) {
@@ -456,11 +483,9 @@ export default function WorkflowVisualizer() {
 
         // filter all intersecting groupnodes
         const groupNodes = intersections.filter((n) => n.data.isGroup);
-        console.log("GN", groupNodes);
 
         // find the lowest level group node, i.e.: that is closese to tree leafs
         const nonParentNodes = findLowestNodes(groupNodes);
-        console.log("NPGN", nonParentNodes);
         
         // if no group nodes are found then continue
         if (nonParentNodes.length === 0) {
@@ -529,8 +554,6 @@ export default function WorkflowVisualizer() {
     
     if (nodeElement) {
       const nodeRect = nodeElement.getBoundingClientRect();
-
-      console.log(nodeRect);
 
       // Position the panel to the right of the node
       panelPosition = {
