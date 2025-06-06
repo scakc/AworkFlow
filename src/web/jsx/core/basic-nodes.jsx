@@ -1,7 +1,7 @@
 import { BaseNode } from './workflow-core';
 // Add this import at the top of your basic-nodes.jsx file
 import React from 'react';
-import { Handle, Position, NodeResizer } from 'reactflow';
+import { Handle, Position, NodeResizer } from '@xyflow/react';
 
 
 // Add this to basic-nodes.jsx

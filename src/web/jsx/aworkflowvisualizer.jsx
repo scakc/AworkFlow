@@ -1,30 +1,27 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import ReactFlow, {
+import { ReactFlow,
   applyNodeChanges,
   applyEdgeChanges,
   Background,
   addEdge,
   Controls,
-  Handle,
-  Position,
   useReactFlow,
-  ReactFlowProvider,
-  NodeResizer
-} from "reactflow";
-import "reactflow/dist/style.css";
-import { createWorkflowFromData, nodeClasses } from "./core/workflow-factory";
+  ReactFlowProvider
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css"; // New import for XYFlow
+import { createWorkflowFromData } from "./core/workflow-factory";
 import { customMap as basicNodesMap } from './core/basic-nodes';
 import NodeCreationModal from "./nodecreationmodal";
 
-const nodeTypes = {
+export const nodeTypes = {
   ...basicNodesMap
 }
 
 export default function WorkflowVisualizer() {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
-  const [selectedNode, setSelectedNode] = useState(null);
-  const [selectedEdge, setSelectedEdge] = useState(null);
+  const [selectedNodes, setSelectedNodes] = useState([]);
+  const [selectedEdges, setSelectedEdges] = useState([]);
   const [showNodeModal, setShowNodeModal] = useState(false);
   const [nodePosition, setNodePosition] = useState({ x: 0, y: 0 });
   const [editingNode, setEditingNode] = useState(null);
@@ -40,56 +37,19 @@ export default function WorkflowVisualizer() {
     saveWorkflow();
   }, []);
 
-  // Function to check if a node is inside a group node
-  const isNodeInsideGroup = (nodePosition, groupNode) => {
-    var isNodeInside = (
-      nodePosition.x > groupNode.position.x &&
-      nodePosition.x < groupNode.position.x + parseInt(groupNode.data.width) &&
-      nodePosition.y > groupNode.position.y &&
-      nodePosition.y < groupNode.position.y + parseInt(groupNode.data.height)
-    );
-    console.log(nodePosition, groupNode, isNodeInside);
-    return isNodeInside
-  };
-
-  // Inside your component, add a ref for the flow
-  const reactFlowWrapper = useRef(null);
-
   const memory = useRef({
     nodes: [],
     edges: [],
     viewport: { x: 0, y: 0, zoom: 1 }
   });
 
-  // Add this function to your component
-  const updateNodeDimensions = (nodeId, width, height) => {
-    
-    setNodes((nds) => {
-      const updatedNodes = nds.map((n) => {
-        if (n.id === nodeId) {
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              width,
-              height
-            },
-            style: {
-              ...n.style,
-              width,
-              height
-            }
-          };
-        }
-        return n;
-      });
-      
-      memory.nodes = updatedNodes;
-      saveWorkflow();
-      onNodeDragStop();
-      return updatedNodes;
-    });
-  };
+  // the passed handler has to be memoized, otherwise the hook will not work correctly
+  const onChange = useCallback(({ nodes, edges }) => {
+    console.log("onChange", nodes, edges);
+
+    setSelectedNodes(nodes.map((node) => node.id));
+    setSelectedEdges(edges.map((edge) => edge.id));
+  }, []);
 
   // Expose reference to the window object
   useEffect(() => {
@@ -97,11 +57,10 @@ export default function WorkflowVisualizer() {
       loadWorkflow, 
       getWorkflow,
       addNode,
-      updateNodeProperties,
       saveWorkflow,
       deleteNode,
       deleteEdge,
-      updateNodeDimensions
+      onChange
     });
   }, []);
 
@@ -110,19 +69,23 @@ export default function WorkflowVisualizer() {
     const handleKeyDown = (event) => {
       if (event.key === 'Delete') {
         // Delete selected node if one is selected
-        if (selectedNode) {
-          deleteNode(selectedNode.id);
-          setSelectedNode(null);
+        if (selectedNodes.length > 0) {
+          console.log("deleted nodes", selectedNodes);
+          deleteNode(selectedNodes.map((n) => n.id));
+          setSelectedNodes([]);
           return;
         }
         
         // If no node is selected, check if an edge is selected
         // ReactFlow adds the 'selected' class to selected edges
-        console.log("deleted", selectedEdge);
-        if (selectedEdge) {
-          deleteEdge(selectedEdge);
-          setSelectedEdge(null);
+        if (selectedEdges.length > 0) {
+          console.log("deleted edges", selectedEdges);
+          deleteEdge(selectedEdges.map((e) => e.id)); 
+          setSelectedEdges([]);
+          return 
         }
+        
+
       }
     };
     
@@ -130,7 +93,28 @@ export default function WorkflowVisualizer() {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedNode, selectedEdge, deleteNode, deleteEdge]);
+  }, [selectedNodes, selectedEdges, deleteNode, deleteEdge]);
+
+  const removeRedundandNodes = (nodes) => {
+    const nodeIds = new Set();
+    const uniqueNodes = [];
+
+    nodes.forEach((node) => {
+      if (!nodeIds.has(node.id)) {
+        nodeIds.add(node.id);
+        uniqueNodes.push(node);
+      }
+    });
+
+    return uniqueNodes;
+  }
+
+  const removeUnconnectedEdges = (edges, nodes) => {
+    const connectedNodeIds = new Set(nodes.map((node) => node.id));
+    const connectedEdges = edges.filter((edge) => connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target));
+
+    return connectedEdges;
+  };
 
   // Function to load workflow data
   const loadWorkflow = (data) => {
@@ -139,7 +123,7 @@ export default function WorkflowVisualizer() {
     // Get the data representation
     const workflowData = workflow.get_data();
     // Map nodes
-    const loadedNodes = workflowData.nodes.map((n, index) => {
+    var loadedNodes = removeRedundandNodes(workflowData.nodes.map((n, index) => {
       // Get style based on node class and data
       var node_ = {
         id: n.id,
@@ -174,14 +158,16 @@ export default function WorkflowVisualizer() {
       }
 
       return node_;
-    });
+    }));
 
     // Map edges
-    const loadedEdges = workflowData.edges.map((e) => ({
+    var loadedEdges = workflowData.edges.map((e) => ({
       id: `e${e.source}-${e.target}`,
       source: e.source,
       target: e.target,
     }));
+
+    loadedEdges = removeUnconnectedEdges(loadedEdges, loadedNodes);
 
     setNodes(loadedNodes);
     setEdges(loadedEdges);
@@ -246,6 +232,7 @@ export default function WorkflowVisualizer() {
     localStorage.setItem("workflowData", JSON.stringify(workflowData));
   };
 
+  // 
   const getWorkflow = (input_memory=null) => {
 
     if ((input_memory == undefined) || (input_memory == null)) {
@@ -261,6 +248,7 @@ export default function WorkflowVisualizer() {
     return {
       nodes: input_memory.nodes.map((n) => {
         // Extract all data except style
+        n.data.style = n.data.style || {};
         const { style, ...nodeData } = n.data;
         
         return {
@@ -304,12 +292,13 @@ export default function WorkflowVisualizer() {
   };
 
   // Add this function to your WorkflowVisualizer component
-  const deleteNode = useCallback((nodeId) => {
+  const deleteNode = useCallback((nodeIds) => {
+    console.log("ids", nodeIds);
     // Check if the node being deleted is a parent to any other nodes
     setNodes((nds) => {
       // First remove parent references from any child nodes
       var updatedNodes = nds.map(node => {
-        if (node.parentNode === nodeId) {
+        if (nodeIds.includes(node.parentNode)) {
           // Remove parent reference and update position to absolute
           const { parentNode, ...nodeWithoutParent } = node;
           const { parentNodeId, ...nodeData } = nodeWithoutParent.data;
@@ -325,13 +314,13 @@ export default function WorkflowVisualizer() {
       });
 
       // Then filter out the deleted node
-      updatedNodes = updatedNodes.filter(node => node.id !== nodeId);
+      updatedNodes = updatedNodes.filter(node => !nodeIds.includes(node.id));
       memory.nodes = updatedNodes
       return updatedNodes;
     });
     
     setEdges((eds) => {
-      var updated_edges = eds.filter(edge => edge.source !== nodeId && edge.target !== nodeId)
+      var updated_edges = eds.filter(edge => !nodeIds.includes(edge.source) && !nodeIds.includes(edge.target))
       memory.edges = updated_edges;
       return updated_edges;
     });
@@ -342,90 +331,18 @@ export default function WorkflowVisualizer() {
   }, []);
 
   // Add this function to delete edges
-  const deleteEdge = useCallback((edgeId) => {
-    setEdges((eds) => eds.filter(edge => edge.id !== edgeId));
-    
+  const deleteEdge = useCallback((edgeIds) => {
+    setEdges((eds) => eds.filter(edge => !edgeIds.includes(edge.id)));
     // Update memory
-    memory.edges = memory.edges.filter(edge => edge.id !== edgeId);
+    memory.edges = memory.edges.filter(edge => !edgeIds.includes(edge.id));
     saveWorkflow(memory);
   }, []);
 
-  // Function to update node properties
-  const updateNodeProperties = (nodeId, name, description) => {
-    setNodes(currentNodes => {
-      const updatedNodes = currentNodes.map(node => {
-        if (node.id === nodeId) {
-          return {
-            ...node,
-            data: { ...node.data, label: name}
-          };
-        }
-        return node;
-      });
-      
-      memory.nodes = updatedNodes;
-      console.log("updated", memory.nodes);
-      saveWorkflow(memory);
-      return updatedNodes;
-    });
-
-    // Hide the properties panel after update
-    setSelectedNode(null);
-  };
 
   const onNodesChange = (changes) => {
     setNodes((nds) => {
       const updatedNodes = applyNodeChanges(changes, nds);
       return updatedNodes;
-    });
-  };
-
-  // Function to update group node dimensions based on its children
-  const updateGroupNodeDimensions = (groupnode) => {
-    const groupId = groupnode.id;
-    setNodes(nds => {
-      const childrenOfGroup = nds.filter(n => n.parentNode === groupId);
-      if (childrenOfGroup.length === 0) return nds;
-      
-      // Find min/max positions of all children
-      let minX = Infinity, minY = Infinity;
-      let maxX = -Infinity, maxY = -Infinity;
-      
-      childrenOfGroup.forEach(child => {
-        const nodeWidth = 150;  // Approximate node width
-        const nodeHeight = 50;  // Approximate node height
-        
-        minX = Math.min(minX, child.position.x);
-        minY = Math.min(minY, child.position.y);
-        maxX = Math.max(maxX, child.position.x + nodeWidth);
-        maxY = Math.max(maxY, child.position.y + nodeHeight);
-      });
-      
-      // Add padding
-      const padding = 30;
-      
-      // Update the parent group node dimensions
-      return nds.map(n => {
-        if (n.id === groupId) {
-
-          var newWidth =  Math.max(groupnode.width, maxX + padding * 2);
-          var newHeight = Math.max(groupnode.height, maxY + padding * 2);
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              width: newWidth,
-              height: newHeight
-            },
-            style: {
-              ...n.style,
-              width: newWidth,
-              height: newHeight
-            }
-          };
-        }
-        return n;
-      });
     });
   };
 
@@ -456,28 +373,31 @@ export default function WorkflowVisualizer() {
 
   // Update your onNodeDragStop function
   const onNodeDragStop = useCallback((event, node) => {
+
     // Update memory with the new node positions
     setNodes((nds) => {
       // Get all group nodes except the current node
-      const nonGroupNodes = nds;
-      var updatesNodes = [];
+      const nodesToProcessIds = [node, ...selectedNodes.filter((n) => n.id !== node.id)].map((n) => n.id);
+      const nodesToProcess = nds.filter((n) => nodesToProcessIds.includes(n.id));
+      var updatesNodes = nds.filter((n) => !nodesToProcess.map((n) => n.id).includes(n.id));
+
       // TODO for all non group nodes find their parent group (if any instersection)
       // if nested intersection are there then choose the nesting that is lowest level
-      for (let i = 0; i < nonGroupNodes.length; i++) {
-        const node = nonGroupNodes[i];
-        const intersections = window.reactFlowUtils.getIntersectingNodes(node);
+      for (let i = 0; i < nodesToProcess.length; i++) {
+        const currentNode = nodesToProcess[i];
+        const intersections = window.reactFlowUtils.getIntersectingNodes(currentNode);
         
         // if intersection is 0 delete parentNode and data.parentNodeId
         if (intersections.length === 0) {
-          if (node.parentNode) {
-            const parentNodeInstance = nds.find(n => n.id === node.parentNode);
-            node.position = {x: parentNodeInstance.position.x + node.position.x, y: parentNodeInstance.position.y + node.position.y}
-            node.data.position = node.position;
-            delete node.parentNode;
-            delete node.data.parentNodeId;
+          if (currentNode.parentNode) {
+            const parentNodeInstance = nds.find(n => n.id === currentNode.parentNode);
+            currentNode.position = {x: parentNodeInstance.position.x + currentNode.position.x, y: parentNodeInstance.position.y + currentNode.position.y}
+            currentNode.data.position = currentNode.position;
+            delete currentNode.parentNode;
+            delete currentNode.data.parentNodeId;
           }
 
-          updatesNodes.push(node);
+          updatesNodes.push(currentNode);
           continue;
         }
 
@@ -489,7 +409,7 @@ export default function WorkflowVisualizer() {
         
         // if no group nodes are found then continue
         if (nonParentNodes.length === 0) {
-          updatesNodes.push(node);
+          updatesNodes.push(currentNode);
           continue;
         }
 
@@ -498,29 +418,32 @@ export default function WorkflowVisualizer() {
 
         // check if parent is same 
         if (node.parentNode === parent.id) {
-          updatesNodes.push(node);
+          updatesNodes.push(currentNode);
           continue;
         }
 
         if (parent) {
           // check if parent is a group node
           if (parent.type === 'GroupNode') {
-            node.parentNode = parent.id;
-            node.data.parentNodeId = parent.id;
-            node.position = {x: node.position.x - parent.position.x, y: node.position.y - parent.position.y}
-            node.data.position = node.position;
+            currentNode.parentNode = parent.id;
+            currentNode.data.parentNodeId = parent.id;
+            currentNode.position = {x: currentNode.position.x - parent.position.x, y: currentNode.position.y - parent.position.y}
+            currentNode.data.position = currentNode.position;
           }
         }
 
-        updatesNodes.push(node);
+        updatesNodes.push(currentNode);
       }
 
+      console.log("updated", updatesNodes);
+
       memory.nodes = updatesNodes;
-      saveWorkflow();
+      saveWorkflow(memory);
       return updatesNodes;
     });
-  }, [nodes]);
+  }, [nodes, selectedNodes]);
   
+
   const onEdgesChange = (changes) => {
     setEdges((eds) => {
       const updatedEdges = applyEdgeChanges(changes, eds);
@@ -530,6 +453,11 @@ export default function WorkflowVisualizer() {
   
       return updatedEdges;
     });
+  };
+
+  const onSelectionChange = (selection) => {
+    setSelectedNodes(selection.nodes);
+    setSelectedEdges(selection.edges);
   };
 
   // Handle new edge connections
@@ -544,91 +472,60 @@ export default function WorkflowVisualizer() {
 
   }, []);
 
-  // Handle node selection
-  const onNodeClick = (event, node) => {
-    // Get the node DOM element
-    const nodeElement = document.querySelector(`[data-id="${node.id}"]`);
-    
-    // Calculate panel position to appear to the right of the node
-    let panelPosition = { x: 10, y: 10 };
-    
-    if (nodeElement) {
-      const nodeRect = nodeElement.getBoundingClientRect();
-
-      // Position the panel to the right of the node
-      panelPosition = {
-        x: nodeRect.left + 100, // 10px to the right of the node
-        y: nodeRect.top
-      };
-      
-      // Add width and height to the node object for reference
-      node.width = nodeRect.width;
-      node.height = nodeRect.height;
-    }
-    
-    setSelectedNode({...node, panelPosition});
-  };
-
   // Handle node double-click for editing
   const onNodeDoubleClick = (event, node) => {
     event.stopPropagation();
     setEditingNode(node);
     setNodePosition(node.position);
     setShowNodeModal(true);
-  };
-
-  // Add this handler for edge selection
-  const onEdgeClick = (event, edge) => {
-    setSelectedEdge(edge.id);
-    // console.log("Edge clicked:", selectedEdge); // Debug log
-    setSelectedNode(null); // Deselect any selected node
+    setSelectedEdges([]);
+    setSelectedNodes([]); 
   };
 
   // Handle background click to close properties panel
   const onPaneClick = (event) => {
 
-    // 
+    // stop prop...
     event.stopPropagation();
-
     // If shift key is pressed, create a new node
-    if (event.shiftKey && reactFlowInstance.current) {
-      const position = reactFlowInstance.current.project({
-        x: event.clientX,
-        y: event.clientY
-      });
+    if (event.shiftKey && reactFlowInstance) {
+      const position = {
+        x: event.clientX - memory.viewport.x,
+        y: event.clientY - memory.viewport.y
+      };
       setNodePosition(position);
       setShowNodeModal(true);
       return;
     }
     
-    setSelectedNode(null);
-    setSelectedEdge(null);
+    setSelectedNodes([]);
+    setSelectedEdges([]);
     setEditingNode(null);
   };
 
   return (
     <ReactFlowProvider>
-    <div style={{ width: "100vw", height: "100vh" }}>
+      <div style={{ height: '100vh', width: '100vw' }}>
       <ReactFlow
-        nodes={nodes}
+        nodes={nodes.map(node => ({
+          ...node
+        }))}
         edges={edges}
         onNodesChange={onNodesChange}
         onNodeDragStop={onNodeDragStop}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
         onNodeDoubleClick={onNodeDoubleClick}
-        onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         onInit={onLoad}
         onMoveEnd={onMoveEnd}
+        onSelectionChange={onSelectionChange}
         defaultViewport={viewport}
       >
         <Background />
         <Controls />
         <FlowUtilsProvider />
-      </ReactFlow>
       {showNodeModal && <NodeCreationModal
           nodePosition={nodePosition}
           setShowNodeModal={setShowNodeModal}
@@ -637,7 +534,9 @@ export default function WorkflowVisualizer() {
           saveWorkflow={saveWorkflow}
           editingNode={editingNode}
           setEditingNode={setEditingNode}
-        />}
-    </div></ReactFlowProvider>
+      />}
+      </ReactFlow>
+      </div>
+      </ReactFlowProvider>
   );
 }
