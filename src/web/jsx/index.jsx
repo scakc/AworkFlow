@@ -87,6 +87,7 @@ window.setWorkflowVisualizerRef = (ref) => {
 };
 
 window.handleResizeNode = (id, width, height) => {
+    // console.log("resizing node", id, width, height);
     if (workflowVisualizerRef) {
         workflowVisualizerRef.updateNodeDimensions(id, width, height);
     }

@@ -6,6 +6,7 @@ import { ReactFlow,
   addEdge,
   Controls,
   useReactFlow,
+  MiniMap,
   ReactFlowProvider
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css"; // New import for XYFlow
@@ -58,6 +59,7 @@ export default function WorkflowVisualizer() {
       getWorkflow,
       addNode,
       saveWorkflow,
+      updateNodeDimensions,
       deleteNode,
       deleteEdge,
       onChange
@@ -116,6 +118,35 @@ export default function WorkflowVisualizer() {
     return connectedEdges;
   };
 
+
+  // make sure each parent node is before the child node in array  
+  const sortNodes = (nodes) => {
+    const sortedNodes = [];
+    const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+
+    const processNode = (node) => {
+      if (sortedNodes.includes(node)) {
+        return;
+      }
+
+      if (node.parentId) {
+        const parentNode = nodeMap.get(node.parentId);
+        // console.log("found", parentNode, sortedNodes);
+        if (parentNode) {
+          processNode(parentNode);
+        }
+      }
+
+      sortedNodes.push(node);
+    };
+
+    nodes.forEach((node) => {
+      processNode(node);
+    });
+
+    return sortedNodes;
+  };
+
   // Function to load workflow data
   const loadWorkflow = (data) => {
     // Create a workflow instance using our TypeScript classes
@@ -144,11 +175,12 @@ export default function WorkflowVisualizer() {
       if (n.parentNodeId) {
         // check if parent exists
         const parent = workflowData.nodes.find((p) => p.id === n.parentNodeId);
+        // console.log("parent", parent );
 
         if (parent) {
           // check if parent is a group node
           if (parent.type === 'GroupNode') {
-              node_ = {...node_, parentNode: n.parentNodeId}
+              node_ = {...node_, parentId: n.parentNodeId }
           }
         }
         else {
@@ -159,6 +191,9 @@ export default function WorkflowVisualizer() {
 
       return node_;
     }));
+
+    // make sure each parent node is before the child node in array
+    loadedNodes = sortNodes(loadedNodes);
 
     // Map edges
     var loadedEdges = workflowData.edges.map((e) => ({
@@ -298,11 +333,11 @@ export default function WorkflowVisualizer() {
     setNodes((nds) => {
       // First remove parent references from any child nodes
       var updatedNodes = nds.map(node => {
-        if (nodeIds.includes(node.parentNode)) {
+        if (nodeIds.includes(node.parentId)) {
           // Remove parent reference and update position to absolute
-          const { parentNode, ...nodeWithoutParent } = node;
+          const { parentId, ...nodeWithoutParent } = node;
           const { parentNodeId, ...nodeData } = nodeWithoutParent.data;
-          const parentNodeInstance = nds.find(n => n.id === parentNode);
+          const parentNodeInstance = nds.find(n => n.id === parentId);
           const newPosition = {x: parentNodeInstance.position.x + node.position.x, y: parentNodeInstance.position.y + node.position.y}
           return {
             ...nodeWithoutParent,
@@ -338,13 +373,14 @@ export default function WorkflowVisualizer() {
     saveWorkflow(memory);
   }, []);
 
-
-  const onNodesChange = (changes) => {
+  const onNodesChange = useCallback((changes) => {
     setNodes((nds) => {
+      // Apply changes using the built-in function
       const updatedNodes = applyNodeChanges(changes, nds);
+      memory.nodes = updatedNodes;
       return updatedNodes;
     });
-  };
+  }, [nodes]);
 
   // Create a component that will use the useReactFlow hook
   function FlowUtilsProvider({ children }) {
@@ -362,7 +398,7 @@ export default function WorkflowVisualizer() {
       // Create a set of all parent nodes
       const parentNodes = new Set();
       for (const node of nodes) {
-          if (node.parentNode) {
+          if (node.parentId) {
               parentNodes.add(node.parent);
           }
       }
@@ -376,10 +412,13 @@ export default function WorkflowVisualizer() {
 
     // Update memory with the new node positions
     setNodes((nds) => {
+      // console.log(nds);
+      // return nds;
       // Get all group nodes except the current node
       const nodesToProcessIds = [node, ...selectedNodes.filter((n) => n.id !== node.id)].map((n) => n.id);
       const nodesToProcess = nds.filter((n) => nodesToProcessIds.includes(n.id));
-      var updatesNodes = nds.filter((n) => !nodesToProcess.map((n) => n.id).includes(n.id));
+      var remainingNodes = nds.filter((n) => !nodesToProcess.map((n) => n.id).includes(n.id));
+      var updatesNodes = [];
 
       // TODO for all non group nodes find their parent group (if any instersection)
       // if nested intersection are there then choose the nesting that is lowest level
@@ -389,11 +428,11 @@ export default function WorkflowVisualizer() {
         
         // if intersection is 0 delete parentNode and data.parentNodeId
         if (intersections.length === 0) {
-          if (currentNode.parentNode) {
-            const parentNodeInstance = nds.find(n => n.id === currentNode.parentNode);
+          if (currentNode.parentId) {
+            const parentNodeInstance = nds.find(n => n.id === currentNode.parentId);
             currentNode.position = {x: parentNodeInstance.position.x + currentNode.position.x, y: parentNodeInstance.position.y + currentNode.position.y}
             currentNode.data.position = currentNode.position;
-            delete currentNode.parentNode;
+            delete currentNode.parentId;
             delete currentNode.data.parentNodeId;
           }
 
@@ -403,37 +442,51 @@ export default function WorkflowVisualizer() {
 
         // filter all intersecting groupnodes
         const groupNodes = intersections.filter((n) => n.data.isGroup);
+        const nonGroupOrSelectedNodes = intersections.filter((n) => !n.data.isGroup).filter((n) => remainingNodes.map((n) => n.id).includes(n.id));
 
         // find the lowest level group node, i.e.: that is closese to tree leafs
-        const nonParentNodes = findLowestNodes(groupNodes);
+        const nonGroupParentNodes = findLowestNodes(groupNodes);
         
         // if no group nodes are found then continue
-        if (nonParentNodes.length === 0) {
-          updatesNodes.push(currentNode);
-          continue;
-        }
+        if (nonGroupParentNodes.length !== 0) {
+          // pick the first one
+          const parent = nonGroupParentNodes[0];
 
-        // pick the first one
-        const parent = nonParentNodes[0];
-
-        // check if parent is same 
-        if (node.parentNode === parent.id) {
-          updatesNodes.push(currentNode);
-          continue;
-        }
-
-        if (parent) {
-          // check if parent is a group node
-          if (parent.type === 'GroupNode') {
-            currentNode.parentNode = parent.id;
-            currentNode.data.parentNodeId = parent.id;
-            currentNode.position = {x: currentNode.position.x - parent.position.x, y: currentNode.position.y - parent.position.y}
-            currentNode.data.position = currentNode.position;
+          if (parent && currentNode.parentId !== parent.id) {
+            // check if parent is a group node
+            if (parent.type === 'GroupNode') {
+              currentNode.parentId = parent.id;
+              currentNode.data.parentNodeId = parent.id;
+              currentNode.position = {x: currentNode.position.x - parent.position.x, y: currentNode.position.y - parent.position.y}
+              currentNode.data.position = currentNode.position;
+            }
           }
         }
 
         updatesNodes.push(currentNode);
+
+        // // if current node is group node the assign nodeGroup Nodes parent as current node
+        // if (currentNode.data.isGroup) {
+
+        //   // add parent id and add to updated nodes
+        //   for (let i = 0; i < nonGroupOrSelectedNodes.length; i++) {
+        //     const n = nonGroupOrSelectedNodes[i];
+        //     n.parentId = currentNode.id;
+        //     n.parentNode = currentNode.id;
+        //     n.data.parentNodeId = currentNode.id;
+        //     n.position = {x: n.position.x - currentNode.position.x, y: n.position.y - currentNode.position.y}
+        //     n.data.position = n.position;
+        //     updatesNodes.push(n);
+        //   }
+
+        //   // remove them from remaining nodes
+        //   remainingNodes = remainingNodes.filter((n) => !nonGroupOrSelectedNodes.map((n) => n.id).includes(n.id));
+        // }
       }
+
+      // add remaining nodes
+      updatesNodes = updatesNodes.concat(remainingNodes);
+      updatesNodes = sortNodes(updatesNodes);
 
       console.log("updated", updatesNodes);
 
@@ -443,6 +496,35 @@ export default function WorkflowVisualizer() {
     });
   }, [nodes, selectedNodes]);
   
+  // Add this function to your component
+  const updateNodeDimensions = (nodeId, width, height) => {
+    // console.log("here..")
+    
+    setNodes((nds) => {
+      var updatedNodes = nds.map((n) => {
+        if (n.id === nodeId) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              width,
+              height
+            },
+            style: {
+              ...n.style,
+              width,
+              height
+            }
+          };
+        }
+        return n;
+      });
+      
+      memory.nodes = updatedNodes;
+      saveWorkflow();
+      return updatedNodes;
+    });
+  };
 
   const onEdgesChange = (changes) => {
     setEdges((eds) => {
@@ -507,13 +589,11 @@ export default function WorkflowVisualizer() {
     <ReactFlowProvider>
       <div style={{ height: '100vh', width: '100vw' }}>
       <ReactFlow
-        nodes={nodes.map(node => ({
-          ...node
-        }))}
+        nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
-        onNodeDragStop={onNodeDragStop}
         onEdgesChange={onEdgesChange}
+        onNodeDragStop={onNodeDragStop}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         onNodeDoubleClick={onNodeDoubleClick}
@@ -524,6 +604,7 @@ export default function WorkflowVisualizer() {
         defaultViewport={viewport}
       >
         <Background />
+        <MiniMap />
         <Controls />
         <FlowUtilsProvider />
       {showNodeModal && <NodeCreationModal
