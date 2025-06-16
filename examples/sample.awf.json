@@ -1,22 +1,48 @@
 {
   "nodes": [
     {
-      "id": "1",
-      "class": "DescriptionNode",
-      "label": "Task 1",
-      "description": "This is the first task"
+      "id": "node_1750064086029",
+      "label": "C",
+      "position": {
+        "x": 267.56631243253986,
+        "y": -101.20204285487661
+      },
+      "class": "GroupNode",
+      "width": 300,
+      "height": 200,
+      "children": [],
+      "isGroup": true,
+      "type": "GroupNode"
     },
     {
-      "id": "2",
-      "class": "DescriptionNode",
-      "label": "Task 2",
-      "description": "This is the second task"
+      "id": "node_1750064078285",
+      "label": "B",
+      "position": {
+        "x": 86.54223737333717,
+        "y": 67.41719620468527
+      },
+      "class": "BaseNode",
+      "parentNodeId": "node_1750064086029"
+    },
+    {
+      "id": "node_1750064071645",
+      "label": "A",
+      "position": {
+        "x": -29.082467607128187,
+        "y": 71.05089376328937
+      },
+      "class": "BaseNode"
     }
   ],
   "edges": [
     {
-      "source": "1",
-      "target": "2"
+      "source": "node_1750064071645",
+      "target": "node_1750064078285"
     }
-  ]
+  ],
+  "viewport": {
+    "x": 273.48081685545196,
+    "y": 199.60758740976914,
+    "zoom": 0.926816237213699
+  }
 }
