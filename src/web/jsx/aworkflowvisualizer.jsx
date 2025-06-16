@@ -118,7 +118,6 @@ export default function WorkflowVisualizer() {
     return connectedEdges;
   };
 
-
   // make sure each parent node is before the child node in array  
   const sortNodes = (nodes) => {
     const sortedNodes = [];
@@ -426,42 +425,48 @@ export default function WorkflowVisualizer() {
         const currentNode = nodesToProcess[i];
         const intersections = window.reactFlowUtils.getIntersectingNodes(currentNode);
         
+        // filter all intersecting groupnodes
+        const groupNodes = intersections.filter((n) => n.data.isGroup);
+
+        // TODO
+        // update functions to compute nested absolute position in nested groups 
+
         // if intersection is 0 delete parentNode and data.parentNodeId
-        if (intersections.length === 0) {
+        if (groupNodes.length === 0) {
           if (currentNode.parentId) {
+            // console.log("Removing parent", currentNode);
             const parentNodeInstance = nds.find(n => n.id === currentNode.parentId);
+            // get parents absolute position in html view
+            // const parentHTMLPosTranslation = reactFlowInstance.current.screenToFlowPosition({x: parentNodeInstance.position.x + parentNodeInstance.style.width, y: parentNodeInstance.position.y + parentNodeInstance.style.height});
+            // console.log("parentHTMLPosTranslation", parentHTMLPosTranslation);
             currentNode.position = {x: parentNodeInstance.position.x + currentNode.position.x, y: parentNodeInstance.position.y + currentNode.position.y}
             currentNode.data.position = currentNode.position;
             delete currentNode.parentId;
             delete currentNode.data.parentNodeId;
           }
-
-          updatesNodes.push(currentNode);
-          continue;
         }
+        else{
+          // const nonGroupOrSelectedNodes = intersections.filter((n) => !n.data.isGroup).filter((n) => remainingNodes.map((n) => n.id).includes(n.id));
+          // find the lowest level group node, i.e.: that is closese to tree leafs
+          const nonGroupParentNodes = findLowestNodes(groupNodes);
+          
+          // if no group nodes are found then continue
+          if (nonGroupParentNodes.length !== 0) {
+            // pick the first one
+            const parent = nonGroupParentNodes[0];
 
-        // filter all intersecting groupnodes
-        const groupNodes = intersections.filter((n) => n.data.isGroup);
-        const nonGroupOrSelectedNodes = intersections.filter((n) => !n.data.isGroup).filter((n) => remainingNodes.map((n) => n.id).includes(n.id));
-
-        // find the lowest level group node, i.e.: that is closese to tree leafs
-        const nonGroupParentNodes = findLowestNodes(groupNodes);
-        
-        // if no group nodes are found then continue
-        if (nonGroupParentNodes.length !== 0) {
-          // pick the first one
-          const parent = nonGroupParentNodes[0];
-
-          if (parent && currentNode.parentId !== parent.id) {
-            // check if parent is a group node
-            if (parent.type === 'GroupNode') {
-              currentNode.parentId = parent.id;
-              currentNode.data.parentNodeId = parent.id;
-              currentNode.position = {x: currentNode.position.x - parent.position.x, y: currentNode.position.y - parent.position.y}
-              currentNode.data.position = currentNode.position;
+            if (parent && currentNode.parentId !== parent.id) {
+              // check if parent is a group node
+              if (parent.type === 'GroupNode') {
+                currentNode.parentId = parent.id;
+                currentNode.data.parentNodeId = parent.id;
+                currentNode.position = {x: currentNode.position.x - parent.position.x, y: currentNode.position.y - parent.position.y}
+                currentNode.data.position = currentNode.position;
+              }
             }
           }
         }
+        
 
         updatesNodes.push(currentNode);
 
